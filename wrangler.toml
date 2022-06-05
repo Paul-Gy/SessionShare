@@ -1,0 +1,23 @@
+name = "sessionshare"
+account_id = ""
+workers_dev = true
+compatibility_date = "2022-06-05"
+main = "./src/handler.ts"
+
+[[rules]]
+type = "ESModule"
+globs = ["**/*.ts"]
+
+[durable_objects]
+bindings = [
+    { name = "SESSIONS", class_name = "SharingSession" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["SharingSession"]
+
+[[r2_buckets]]
+binding = 'BUCKET'
+bucket_name = 'sessionshare'
+preview_bucket_name = 'sessionshare'
