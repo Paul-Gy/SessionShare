@@ -1,7 +1,11 @@
 import { json } from 'itty-router-extras'
-
-type FilesIndex = Record<string, UploadedFile>
-type LogType = 'user_join' | 'user_leave' | 'file_upload' | 'file_delete'
+import {
+  FileIndex,
+  LogEvent,
+  LogType,
+  SessionClient,
+  UploadedFile,
+} from './api'
 
 export class SharingSession implements DurableObject {
   state: DurableObjectState
@@ -66,35 +70,37 @@ export class SharingSession implements DurableObject {
   ) {
     const id = filename
     const key = this.state.id.toString() + '-' + id
-    const files: FilesIndex = (await this.state.storage.get('files')) ?? {}
+    const files: FileIndex = (await this.state.storage.get('files')) ?? {}
 
-    if (files[id]) {
+    if (Object.keys(files).length > 25) {
       return json(
-        { error: 'A file with this name already exists' },
+        { error: 'A session can contains up to 25 files' },
         { status: 400 },
       )
     }
+
+    const r2object = await this.env.BUCKET.put(key, request.body)
 
     const file: UploadedFile = {
       id,
       name: filename,
       type: request.headers.get('Content-Type') ?? '',
-      size: 0,
+      size: r2object.size,
       lastUpdate: new Date(),
     }
-
-    await this.env.BUCKET.put(key, request.body)
 
     files[id] = file
 
     await this.state.storage.put('files', files)
     await this.broadcast('file_upload', user, file)
 
+    await this.updateExpiration()
+
     return json({ id })
   }
 
   async handleDelete(fileId: string, ip: string, user: string) {
-    const files: FilesIndex = (await this.state.storage.get('files')) ?? {}
+    const files: FileIndex = (await this.state.storage.get('files')) ?? {}
     const file = files[fileId]
 
     if (!file) {
@@ -138,8 +144,7 @@ export class SharingSession implements DurableObject {
         if (!receivedUserInfo) {
           await this.broadcast('user_join', data.name)
 
-          const files: FilesIndex =
-            (await this.state.storage.get('files')) ?? {}
+          const files: FileIndex = (await this.state.storage.get('files')) ?? {}
           const logs: LogEvent[] = (await this.state.storage.get('logs')) ?? []
 
           client.name = data.name
@@ -158,14 +163,10 @@ export class SharingSession implements DurableObject {
           receivedUserInfo = true
         }
       } catch (err) {
-        // Report any exceptions directly back to the client. As with our handleErrors() this
-        // probably isn't what you'd want to do in production, but it's convenient when testing.
         socket.send(JSON.stringify({ error: err }))
       }
     })
 
-    // On 'close' and 'error' events, remove the WebSocket from the sessions list and broadcast
-    // a quit message.
     const quitHandler = () => {
       client.active = false
       this.clients = this.clients.filter((member) => member !== client)
@@ -175,6 +176,20 @@ export class SharingSession implements DurableObject {
     }
     socket.addEventListener('close', quitHandler)
     socket.addEventListener('error', quitHandler)
+  }
+
+  async destroy() {
+    const files: FileIndex = (await this.state.storage.get('files')) ?? {}
+
+    for (const file in files) {
+      const key = this.state.id.toString() + '-' + file
+
+      await this.env.BUCKET.delete(key)
+    }
+
+    await this.broadcast('close', '')
+
+    await this.state.storage.deleteAll()
   }
 
   async broadcast(
@@ -217,6 +232,14 @@ export class SharingSession implements DurableObject {
     await this.state.storage.put('logs', logs)
   }
 
+  async updateExpiration() {
+    await this.state.storage.setAlarm(Date.now() + 86400 * 1000) // 24 hours
+  }
+
+  async alarm() {
+    await this.destroy()
+  }
+
   parseUsernameFromRequest(request: Request): string {
     return request.headers.get('Session-Name') ?? '???'
   }
@@ -224,26 +247,4 @@ export class SharingSession implements DurableObject {
 
 interface Env {
   BUCKET: R2Bucket
-}
-
-interface SessionClient {
-  name?: string
-  socket: WebSocket
-  ip: string
-  active: boolean
-}
-
-interface UploadedFile {
-  id: string
-  name: string
-  type: string
-  size: number
-  lastUpdate: Date
-}
-
-interface LogEvent {
-  type: LogType
-  user: string
-  file?: UploadedFile
-  date: Date
 }

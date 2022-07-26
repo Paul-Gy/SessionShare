@@ -1,15 +1,13 @@
 import { Router, Request } from 'itty-router'
-import { json, missing } from 'itty-router-extras'
-import html from './html'
+import { error, json, missing } from 'itty-router-extras'
 
 export { SharingSession } from './session'
 
 const router = Router()
 
 router
-  .get(
-    '/:session?',
-    () => new Response(html, { headers: { 'Content-Type': 'text/html' } }),
+  .get('/:session?', () =>
+    error(503, 'The workers should only be active on /api/*'),
   )
   .post('/api/sessions', async () => {
     const id = (Math.random() + 1).toString(36).substring(2)
@@ -27,7 +25,7 @@ router
 
     return session.fetch(url.toString(), request)
   })
-  .all('*', missing)
+  .all('*', () => missing())
 
 export default {
   fetch(request: Request, env: Env): Promise<Response> {
