@@ -16,7 +16,10 @@ router
   })
   .all('/api/sessions/:session/*', async (request: Request, env: Env) => {
     const name = request.params?.session ?? ''
-    const id = env.SESSIONS.idFromName(name)
+    const id =
+      name.length === 64
+        ? env.SESSIONS.idFromString(name)
+        : env.SESSIONS.idFromName(name)
     const session = env.SESSIONS.get(id)
 
     const url = new URL(request.url)

@@ -3,10 +3,10 @@
 Easily share files in multiple times with a single link!
 
 Built using [Vue.js](https://vuejs.org/) on [Cloudflare Workers](https://workers.cloudflare.com/), with Durable Objects
-and R2.
+and R2. Also supports end-to-end files encryption (using AES-256-GCM).
 
 This project was made for the [Cloudflare Developer Challenge 2022](https://challenge.developers.cloudflare.com/) and
-was selected as on of the winners 🎉⚡️
+was selected as one of the winners 🎉⚡️
 
 ## Why ?
 
@@ -17,7 +17,7 @@ link each time.
 ## Features
 
 * Use a single link to share multiple files in multiples times
-* End-to-end AES-GCM files encryption support
+* End-to-end AES-256-GCM files encryption support
 * Blazing fast thanks to Cloudflare Workers
 * Uploaded/deleted files are instantly visible by everyone in the session
 

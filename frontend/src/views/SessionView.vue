@@ -22,6 +22,11 @@ import UploadZone from '../components/UploadZone.vue'
 
           <CopyButton :value="currentUrl()" />
         </div>
+
+        <span v-if="encryptionKey" class="form-text text-success">
+          <i class="bi bi-shield-shaded"></i> Files in this session are
+          end-to-end encrypted.
+        </span>
       </div>
     </div>
 
@@ -132,7 +137,6 @@ import UploadZone from '../components/UploadZone.vue'
 </template>
 
 <script lang="ts">
-import type { AxiosRequestConfig } from 'axios'
 import type { FilesIndex, LogEvent, UploadedFile } from '@/utils/api'
 
 import axios from 'axios'
@@ -259,17 +263,21 @@ export default defineComponent({
       this.join()
     },
     async downloadFile(file: UploadedFile) {
+      if (file.encrypted && !this.encryptionKey) {
+        this.handleError(
+          'This file is encrypted but no encryption key is present in the URL.',
+        )
+        return
+      }
+
       this.loading = true
 
       try {
-        const options: AxiosRequestConfig = this.encryptionKey
-          ? {}
-          : { responseType: 'blob' }
         const response = await axios.get(
           `/api/sessions/${this.session}/files/${file.id}`,
-          options,
+          file.encrypted ? {} : { responseType: 'blob' },
         )
-        const blob = this.encryptionKey
+        const blob = file.encrypted
           ? await decryptFromBase64(response.data, this.encryptionKey)
           : response.data
 
@@ -291,12 +299,12 @@ export default defineComponent({
       }
 
       if (file.size > 100 * 1024 * 1024) {
-        this.handleError('Max upload size is 100 MB')
+        this.handleError('Max upload size is 100 MB.')
         return
       }
 
       if (Object.keys(this.files).length > 25) {
-        this.handleError('A session can contains up to 25 files')
+        this.handleError('A session can contains up to 25 files.')
         return
       }
 
@@ -318,6 +326,7 @@ export default defineComponent({
             headers: {
               'Content-Type': file.type,
               'Session-Name': this.username,
+              'X-Encrypted': !!this.encryptionKey,
             },
           },
         )

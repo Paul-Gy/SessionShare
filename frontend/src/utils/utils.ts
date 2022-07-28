@@ -54,9 +54,7 @@ const supportedFileIcons = [
 export async function readFile(file: Blob): Promise<ArrayBuffer> {
   return new Promise((resolve) => {
     const reader = new FileReader()
-    reader.onload = () => {
-      resolve(reader.result as ArrayBuffer)
-    }
+    reader.onload = () => resolve(reader.result as ArrayBuffer)
     reader.readAsArrayBuffer(file)
   })
 }

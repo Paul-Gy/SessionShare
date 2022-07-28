@@ -86,6 +86,7 @@ export class SharingSession implements DurableObject {
       name: filename,
       type: request.headers.get('Content-Type') ?? '',
       size: r2object.size,
+      encrypted: request.headers.get('X-Encrypted') === 'true',
       lastUpdate: new Date(),
     }
 

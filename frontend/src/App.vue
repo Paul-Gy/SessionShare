@@ -39,7 +39,7 @@ import { RouterView } from 'vue-router'
         >Cloudflare Workers</a
       >
       with
-      <a href="ttps://vuejs.org/" target="_blank" rel="nofollow">Vue.js</a>
+      <a href="https://vuejs.org/" target="_blank" rel="nofollow">Vue.js</a>
     </p>
   </div>
 </template>

@@ -18,6 +18,7 @@ export interface UploadedFile {
   name: string
   type: string
   size: number
+  encrypted: boolean
   lastUpdate: Date
 }
 
