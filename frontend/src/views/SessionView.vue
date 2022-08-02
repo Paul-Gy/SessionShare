@@ -125,8 +125,17 @@ import UploadZone from '../components/UploadZone.vue'
             required
           />
 
-          <button type="submit" class="btn btn-primary rounded-pill mb-3">
-            Go
+          <button
+            type="submit"
+            class="btn btn-primary rounded-pill mb-3"
+            :disabled="loading"
+          >
+            <i class="bi bi-check2-circle"></i> Go
+            <span
+              v-if="loading"
+              class="spinner-border spinner-border-sm"
+              role="status"
+            />
           </button>
         </form>
       </div>
@@ -173,6 +182,7 @@ export default defineComponent({
   methods: {
     join() {
       this.handleError(null)
+      this.loading = true
 
       const host = window.location.host
       const url = `wss://${host}/api/sessions/${this.session}/websocket`
@@ -182,6 +192,7 @@ export default defineComponent({
         this.webSocket?.send(
           JSON.stringify({ ready: true, name: this.usernameInput }),
         )
+        this.loading = false
         this.rejoining = false
       })
 
@@ -194,6 +205,7 @@ export default defineComponent({
         }
 
         if (data.ready === true) {
+          this.loading = false
           this.username = this.usernameInput
           this.files = data.files
           this.logs = data.logs.reverse()

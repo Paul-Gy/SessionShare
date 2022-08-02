@@ -5,7 +5,7 @@
       type="button"
       class="btn btn-primary rounded-pill mb-3"
     >
-      Start a new sharing session
+      <i class="bi bi-share"></i> Start a new sharing session
     </button>
 
     <div class="d-flex justify-content-center align-items-center">
