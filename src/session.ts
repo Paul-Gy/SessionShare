@@ -143,8 +143,6 @@ export class SharingSession implements DurableObject {
         }
 
         if (!receivedUserInfo) {
-          await this.broadcast('user_join', data.name)
-
           const files: FileIndex = (await this.state.storage.get('files')) ?? {}
           const logs: LogEvent[] = (await this.state.storage.get('logs')) ?? []
 
@@ -160,6 +158,8 @@ export class SharingSession implements DurableObject {
                 .map((client) => client.name),
             }),
           )
+
+          await this.broadcast('user_join', data.name)
 
           receivedUserInfo = true
         }

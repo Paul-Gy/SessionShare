@@ -10,10 +10,10 @@
 
   --vt-c-indigo: #2c3e50;
 
-  --vt-c-divider-light-1: rgba(60, 60, 60, 0.29);
-  --vt-c-divider-light-2: rgba(60, 60, 60, 0.12);
-  --vt-c-divider-dark-1: rgba(84, 84, 84, 0.65);
-  --vt-c-divider-dark-2: rgba(84, 84, 84, 0.48);
+  --vt-c-divider-light-1: rgba(60, 60, 60, 0.39);
+  --vt-c-divider-light-2: rgba(60, 60, 60, 0.22);
+  --vt-c-divider-dark-1: rgba(84, 84, 84, 0.85);
+  --vt-c-divider-dark-2: rgba(84, 84, 84, 0.68);
 
   --vt-c-text-light-1: var(--vt-c-indigo);
   --vt-c-text-light-2: rgba(60, 60, 60, 0.66);
@@ -32,8 +32,6 @@
 
   --color-heading: var(--vt-c-text-light-1);
   --color-text: var(--vt-c-text-light-1);
-
-  --section-gap: 160px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -52,7 +50,7 @@
 
 :root {
   --bs-body-color: var(--color-text)!important;
-  --bs-body-bg: var(--color-background-soft)!important;
+  --bs-body-bg: var(--color-background)!important;
 }
 
 h6, .h6, h5, .h5, h4, .h4, h3, .h3, h2, .h2, h1, .h1 {
@@ -60,9 +58,20 @@ h6, .h6, h5, .h5, h4, .h4, h3, .h3, h2, .h2, h1, .h1 {
 }
 
 .content-box {
-  background: var(--color-background);
+  background-color: var(--color-background-soft);
   border-radius: 0.8rem;
   border-width: 1px;
   padding: 0.75rem;
-  box-shadow: 0 0.2rem .3rem rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0.2rem 0.15rem rgba(0, 0, 0, 0.1);
+}
+
+.form-control {
+  color: var(--color-text);
+  background-color: var(--color-background);
+  border-color: var(--color-border);
+
+  &:focus {
+    color: var(--color-text);
+    background-color: var(--color-background-soft);
+  }
 }

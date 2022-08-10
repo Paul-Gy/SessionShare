@@ -230,12 +230,12 @@ export default defineComponent({
 
         switch (data.type) {
           case 'user_join':
-            if (this.users.includes(data.user)) {
+            if (!this.users.includes(data.user)) {
               this.users.push(data.user)
             }
             break
           case 'user_leave':
-            this.users = this.users.filter((u) => data.user !== u)
+            this.users = this.users.filter((u) => u !== data.user)
             break
           case 'file_upload':
             this.files[data.file.id] = data.file
