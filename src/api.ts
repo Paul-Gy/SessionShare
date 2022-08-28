@@ -16,7 +16,7 @@ export interface SessionClient {
 export interface UploadedFile {
   id: string
   name: string
-  type: string
+  type?: string
   size: number
   encrypted: boolean
   lastUpdate: Date

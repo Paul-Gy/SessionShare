@@ -30,7 +30,7 @@ import UploadZone from '../components/UploadZone.vue'
       </div>
     </div>
 
-    <div class="row g-4 mb-4">
+    <div class="row g-4 gy-3 mb-4">
       <div class="col-md-8">
         <div class="content-box mb-4">
           <h2>Online users</h2>
@@ -45,13 +45,24 @@ import UploadZone from '../components/UploadZone.vue'
 
         <UploadZone class="content-box" @upload="uploadFile">
           <h2>Files</h2>
-          <div class="row text-center mb-2">
+          <div class="row gy-3 text-center mb-2">
             <div v-for="file in files" :key="file.id" class="col-lg-2 col-md-3">
-              <a @click.prevent="downloadFile(file)" href="#">
+              <a
+                v-if="file.encrypted"
+                @click.prevent="downloadFile(file)"
+                href="#"
+              >
                 <i class="bi fs-1" :class="fileIcon(file.name)"></i>
                 <br />
                 {{ file.name }}
               </a>
+
+              <a v-else :href="fileUrl(file.id)" :download="file.name">
+                <i class="bi fs-1" :class="fileIcon(file.name)"></i>
+                <br />
+                {{ file.name }}
+              </a>
+
               <br />
 
               <small class="d-block">{{ formatBytes(file.size) }}</small>
@@ -151,7 +162,7 @@ import type { FilesIndex, LogEvent, UploadedFile } from '@/utils/api'
 import axios from 'axios'
 import { defineComponent } from 'vue'
 import {
-  downloadFileFromBlob,
+  downloadBlob,
   filetypeIconExists,
   formatBytes,
   readFile,
@@ -177,7 +188,13 @@ export default defineComponent({
   emits: ['error'],
   mounted() {
     this.session = this.$route.params.session as string
-    this.encryptionKey = window.location.hash.substring(1)
+    this.encryptionKey = this.$route.hash.substring(1)
+
+    if (typeof this.$route.query.user === 'string') {
+      this.usernameInput = this.$route.query.user
+
+      this.join()
+    }
   },
   methods: {
     join() {
@@ -286,14 +303,14 @@ export default defineComponent({
 
       try {
         const response = await axios.get(
-          `/api/sessions/${this.session}/files/${file.id}`,
+          this.fileUrl(file.id),
           file.encrypted ? {} : { responseType: 'blob' },
         )
         const blob = file.encrypted
           ? await decryptFromBase64(response.data, this.encryptionKey)
           : response.data
 
-        downloadFileFromBlob(blob, file.id)
+        downloadBlob(blob, file.id, file.type ?? 'application/download')
       } catch (e) {
         this.handleError(e)
       }
@@ -331,17 +348,13 @@ export default defineComponent({
           ? await encryptAsBase64(await readFile(file), this.encryptionKey)
           : file
 
-        await axios.post(
-          '/api/sessions/' + this.session + '/files/' + file.name,
-          body,
-          {
-            headers: {
-              'Content-Type': file.type,
-              'Session-Name': this.username,
-              'X-Encrypted': !!this.encryptionKey,
-            },
+        await axios.post(this.fileUrl(file.name), body, {
+          headers: {
+            'Content-Type': file.type,
+            'Session-Name': this.username,
+            'X-Encrypted': !!this.encryptionKey,
           },
-        )
+        })
       } catch (e) {
         this.handleError(e)
       }
@@ -356,7 +369,7 @@ export default defineComponent({
       this.loading = true
 
       try {
-        await axios.delete(`/api/sessions/${this.session}/files/${fileId}`, {
+        await axios.delete(this.fileUrl(fileId), {
           headers: {
             'Session-Name': this.username,
           },
@@ -396,6 +409,9 @@ export default defineComponent({
         case 'file_delete':
           return `${event.user} deleted a file: ${event.file?.name}`
       }
+    },
+    fileUrl(file: string) {
+      return `/api/sessions/${this.session}/files/${file}`
     },
     formatBytes,
     fileIcon(filename: string) {

@@ -59,7 +59,11 @@ export class SharingSession implements DurableObject {
       return new Response('Object Not Found', { status: 404 })
     }
 
-    return new Response(object.body)
+    const headers = new Headers()
+    object.writeHttpMetadata(headers)
+    headers.set('etag', object.httpEtag)
+
+    return new Response(object.body, { headers })
   }
 
   async handleUpload(
@@ -79,12 +83,14 @@ export class SharingSession implements DurableObject {
       )
     }
 
-    const r2object = await this.env.BUCKET.put(key, request.body)
+    const r2object = await this.env.BUCKET.put(key, request.body, {
+      httpMetadata: request.headers,
+    })
 
     const file: UploadedFile = {
       id,
       name: filename,
-      type: request.headers.get('Content-Type') ?? '',
+      type: r2object.httpMetadata.contentType,
       size: r2object.size,
       encrypted: request.headers.get('X-Encrypted') === 'true',
       lastUpdate: new Date(),

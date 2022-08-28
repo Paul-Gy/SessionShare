@@ -59,8 +59,8 @@ export async function readFile(file: Blob): Promise<ArrayBuffer> {
   })
 }
 
-export function downloadFileFromBlob(data: BlobPart, name: string): void {
-  const blob = new Blob([data], { type: 'application/download' })
+export function downloadBlob(data: BlobPart, name: string, type: string): void {
+  const blob = new Blob([data], { type })
   const url = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.style.display = 'none'

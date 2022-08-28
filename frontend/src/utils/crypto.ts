@@ -62,9 +62,15 @@ export async function decryptData(encryptedBuff: Uint8Array, password: string) {
 }
 
 export async function encryptAsBase64(data: ArrayBufferLike, password: string) {
-  const buffer = await encryptData(data, password)
+  const encrypted = await encryptData(data, password)
+  const encryptedLength = encrypted.byteLength
+  const buffer = []
 
-  return btoa(String.fromCharCode(...buffer))
+  for (let i = 0; i < encryptedLength; i++) {
+    buffer.push(String.fromCharCode(encrypted[i]))
+  }
+
+  return btoa(buffer.join(''))
 }
 
 export async function decryptFromBase64(base64: string, password: string) {
