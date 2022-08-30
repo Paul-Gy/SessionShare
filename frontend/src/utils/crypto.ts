@@ -30,19 +30,16 @@ export async function encryptData(data: ArrayBufferLike, password: string) {
   const key = await getPasswordKey(password, salt)
 
   const encrypted = await window.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: iv },
+    { name: 'AES-GCM', iv },
     key,
     new Uint8Array(data),
   )
 
-  const array = new Uint8Array(encrypted)
-
-  const buff = new Uint8Array(
-    salt.byteLength + iv.byteLength + array.byteLength,
-  )
+  const arr = new Uint8Array(encrypted)
+  const buff = new Uint8Array(salt.byteLength + iv.byteLength + arr.byteLength)
   buff.set(salt, 0)
   buff.set(iv, salt.byteLength)
-  buff.set(array, salt.byteLength + iv.byteLength)
+  buff.set(arr, salt.byteLength + iv.byteLength)
 
   return buff
 }
@@ -53,7 +50,7 @@ export async function decryptData(encryptedBuff: Uint8Array, password: string) {
   const data = encryptedBuff.slice(16 + 12)
   const key = await getPasswordKey(password, salt)
   const decrypted = await window.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: iv },
+    { name: 'AES-GCM', iv },
     key,
     new Uint8Array(data),
   )

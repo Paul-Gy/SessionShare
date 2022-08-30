@@ -1,8 +1,6 @@
 name = "sessionshare"
-account_id = ""
-workers_dev = true
 compatibility_date = "2022-06-05"
-main = "./src/handler.ts"
+main = "./src/index.ts"
 
 [[rules]]
 type = "ESModule"

@@ -1,3 +1,33 @@
+<script setup lang="ts">
+import axios from 'axios'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+const emit = defineEmits(['error'])
+
+const loading = ref(false)
+const encrypted = ref(false)
+
+async function start() {
+  try {
+    loading.value = true
+
+    const key = encrypted.value
+      ? '#' + (Math.random() + 1).toString(36).substring(2)
+      : ''
+    const response = await axios.post('/api/sessions')
+    const session = response.data.session
+
+    await router.push(`/${session}${key}`)
+  } catch (e) {
+    emit('error', e)
+  }
+
+  loading.value = false
+}
+</script>
+
 <template>
   <main class="text-center">
     <button
@@ -8,7 +38,7 @@
       <i class="bi bi-share"></i> Start a new sharing session
     </button>
 
-    <div class="d-flex justify-content-center align-items-center">
+    <div class="d-flex justify-content-center">
       <div class="form-check form-switch mb-2">
         <input
           class="form-check-input flex-shrink-0"
@@ -38,38 +68,3 @@
     <hr />
   </main>
 </template>
-
-<script lang="ts">
-import axios from 'axios'
-import { defineComponent } from 'vue'
-
-export default defineComponent({
-  data() {
-    return {
-      loading: false,
-      encrypted: false,
-    }
-  },
-  emits: ['error'],
-  methods: {
-    async start() {
-      try {
-        this.loading = true
-
-        const key = this.encrypted ? '#' + this.randomKey() : ''
-        const response = await axios.post('/api/sessions')
-        const session = response.data.session
-
-        this.$router.push(`/${session}${key}`)
-      } catch (e) {
-        this.$emit('error', e)
-      }
-
-      this.loading = false
-    },
-    randomKey() {
-      return (Math.random() + 1).toString(36).substring(2)
-    },
-  },
-})
-</script>

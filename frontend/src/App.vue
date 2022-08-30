@@ -1,5 +1,12 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { RouterView } from 'vue-router'
+
+const lastError = ref<string>()
+
+function handleError(e: Event | null) {
+  lastError.value = e?.toString() ?? ''
+}
 </script>
 
 <template>
@@ -11,12 +18,12 @@ import { RouterView } from 'vue-router'
 
     <div
       v-if="lastError"
-      class="alert alert-danger alert-dismissible fade show mb-3"
+      class="alert alert-danger alert-dismissible fade show"
       role="alert"
     >
       <i class="bi bi-exclamation-circle"></i> {{ lastError }}
       <button
-        @click="closeError"
+        @click="handleError(null)"
         type="button"
         class="btn-close"
         aria-label="Close"
@@ -43,23 +50,3 @@ import { RouterView } from 'vue-router'
     </p>
   </div>
 </template>
-
-<script lang="ts">
-import { defineComponent } from 'vue'
-
-export default defineComponent({
-  data() {
-    return {
-      lastError: '',
-    }
-  },
-  methods: {
-    handleError(e: Event | null) {
-      this.lastError = e?.toString() ?? ''
-    },
-    closeError() {
-      this.lastError = ''
-    },
-  },
-})
-</script>

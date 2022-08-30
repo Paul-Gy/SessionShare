@@ -1,45 +1,30 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+
+const emit = defineEmits(['upload'])
+
+const dragActive = ref(false)
+
+function setDragActive(active: boolean) {
+  dragActive.value = active
+}
+
+function onDrop(event: DragEvent) {
+  if (event.dataTransfer) {
+    emit('upload', event.dataTransfer.files)
+  }
+
+  setDragActive(false)
+}
+</script>
+
 <template>
   <div
-    :class="dragActive ? 'drag-active' : ''"
-    @dragover.prevent="onDragover"
-    @dragleave.prevent="onDragleave"
+    :class="dragActive ? 'border border-primary' : ''"
+    @dragover.prevent="setDragActive(true)"
+    @dragleave.prevent="setDragActive(false)"
     @drop.prevent="onDrop"
   >
     <slot />
   </div>
 </template>
-
-<script lang="ts">
-import { defineComponent } from 'vue'
-
-export default defineComponent({
-  data() {
-    return {
-      dragActive: false,
-    }
-  },
-  emits: ['upload'],
-  methods: {
-    onDragover() {
-      this.dragActive = true
-    },
-    onDragleave() {
-      this.dragActive = false
-    },
-    onDrop(event: DragEvent) {
-      if (event.dataTransfer) {
-        this.$emit('upload', event.dataTransfer.files)
-      }
-
-      this.dragActive = false
-    },
-  },
-})
-</script>
-
-<style scoped>
-.drag-active {
-  background-color: #d5eaff;
-  border: dashed;
-}
-</style>

@@ -1,26 +1,297 @@
 <script setup lang="ts">
+import type { FilesIndex, LogEvent, UploadedFile } from '@/utils/api'
+
+import axios from 'axios'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { decryptFromBase64, encryptAsBase64 } from '@/utils/crypto'
+import { downloadBlob, hasFileIcon, formatBytes, readFile } from '@/utils/utils'
 import CopyButton from '../components/CopyButton.vue'
 import UploadZone from '../components/UploadZone.vue'
+
+const emit = defineEmits(['error'])
+const route = useRoute()
+const router = useRouter()
+
+const session = ref('')
+const encryptionKey = ref('')
+const username = ref('')
+const usernameInput = ref('')
+const loading = ref(false)
+const rejoining = ref(false)
+const webSocket = ref<WebSocket>()
+const fileUpload = ref<HTMLElement>()
+const users = reactive<string[]>([])
+const logs = reactive<LogEvent[]>([])
+const files = reactive<FilesIndex>({})
+
+const currentURL = computed(() => window.location.href)
+
+onMounted(() => {
+  session.value = route.params.session as string
+  encryptionKey.value = route.hash.substring(1)
+
+  if (typeof route.query.user === 'string') {
+    usernameInput.value = route.query.user
+
+    join()
+  }
+})
+
+function join() {
+  handleError(null)
+  loading.value = true
+
+  const host = window.location.host
+  const url = `wss://${host}/api/sessions/${session.value}/websocket`
+  webSocket.value = new WebSocket(url)
+
+  webSocket.value.addEventListener('open', () => {
+    webSocket.value?.send(
+      JSON.stringify({ ready: true, name: usernameInput.value }),
+    )
+    loading.value = false
+    rejoining.value = false
+  })
+
+  webSocket.value.addEventListener('message', (event: MessageEvent) => {
+    const data = JSON.parse(event.data)
+
+    if (data.error) {
+      handleError(data.error)
+      return
+    }
+
+    if (data.ready === true) {
+      loading.value = false
+      username.value = usernameInput.value
+      logs.length = 0
+      users.length = 0
+      logs.push(...data.logs.reverse())
+      users.push(...data.users)
+
+      Object.keys(files).forEach((key) => delete data[key])
+      Object.keys(data.files).forEach((key) => (files[key] = data.files[key]))
+
+      return
+    }
+
+    if (!username.value) {
+      return // Not ready yet
+    }
+
+    if (!data.type) {
+      handleError('Unknown response: ' + event.data)
+      return
+    }
+
+    logs.unshift(data)
+
+    while (logs.length > 15) {
+      logs.pop()
+    }
+
+    switch (data.type) {
+      case 'user_join':
+        if (!users.includes(data.user)) {
+          users.push(data.user)
+        }
+        break
+      case 'user_leave':
+        while (users.includes(data.user)) {
+          users.splice(users.indexOf(data.user), 1)
+        }
+        break
+      case 'file_upload':
+        files[data.file.id] = data.file
+        break
+      case 'file_delete':
+        delete files[data.file.id]
+        break
+      case 'close':
+        closeSession()
+        break
+    }
+  })
+
+  webSocket.value.addEventListener('close', (event: CloseEvent) => {
+    console.log('WebSocket closed, reconnecting:', event.code, event.reason)
+    rejoin()
+  })
+
+  webSocket.value.addEventListener('error', (event: Event) => {
+    console.log('WebSocket error, reconnecting:', event)
+    handleError('WebSocket error, trying to reconnect...')
+    rejoin()
+  })
+}
+
+async function rejoin() {
+  if (rejoining.value) {
+    return
+  }
+
+  rejoining.value = true
+  webSocket.value = undefined
+
+  join()
+}
+
+async function downloadFile(file: UploadedFile) {
+  if (file.encrypted && !encryptionKey.value) {
+    handleError(
+      'This file is encrypted but no encryption key is present in the URL.',
+    )
+    return
+  }
+
+  loading.value = true
+
+  try {
+    const response = await axios.get(
+      fileUrl(file.id),
+      file.encrypted ? {} : { responseType: 'blob' },
+    )
+    const blob = file.encrypted
+      ? await decryptFromBase64(response.data, encryptionKey.value)
+      : response.data
+
+    downloadBlob(blob, file.id, file.type ?? 'application/download')
+  } catch (e) {
+    handleError(e)
+  }
+
+  loading.value = false
+}
+
+async function uploadFile(fileList: FileList) {
+  const file = fileList[0]
+
+  if (
+    files[file.name] &&
+    !confirm('A file with this name already exists, replace it?')
+  ) {
+    return
+  }
+
+  if (file.size > 100 * 1024 * 1024) {
+    handleError('Max upload size is 100 MB.')
+    return
+  }
+
+  if (Object.keys(files).length > 25) {
+    handleError('A session can contains up to 25 files.')
+    return
+  }
+
+  if (loading.value) {
+    return
+  }
+
+  try {
+    loading.value = true
+
+    const body = encryptionKey.value
+      ? await encryptAsBase64(await readFile(file), encryptionKey.value)
+      : file
+
+    await axios.post(fileUrl(file.name), body, {
+      headers: {
+        'Content-Type': file.type,
+        'Session-Name': username.value,
+        'X-Encrypted': !!encryptionKey.value,
+      },
+    })
+  } catch (e) {
+    handleError(e)
+  }
+
+  loading.value = false
+}
+
+async function deleteFile(fileId: string) {
+  if (!confirm('Are you sure you want to delete ' + fileId + ' ?')) {
+    return
+  }
+
+  loading.value = true
+
+  try {
+    await axios.delete(fileUrl(fileId), {
+      headers: {
+        'Session-Name': username.value,
+      },
+    })
+  } catch (e) {
+    handleError(e)
+  }
+
+  loading.value = false
+}
+
+function closeSession() {
+  if (webSocket.value) {
+    webSocket.value.close()
+  }
+
+  router.push('/')
+}
+
+function handleError(error: unknown) {
+  return emit('error', error)
+}
+
+async function onUpload(event: Event) {
+  if (event.target instanceof HTMLInputElement && event.target.files) {
+    await uploadFile(event.target.files)
+  }
+}
+
+function formatLogEvent(event: LogEvent) {
+  switch (event.type) {
+    case 'user_join':
+      return `${event.user} joined the session`
+    case 'user_leave':
+      return `${event.user} left the session`
+    case 'file_upload':
+      return `${event.user} uploaded a file: ${event.file?.name}`
+    case 'file_delete':
+      return `${event.user} deleted a file: ${event.file?.name}`
+  }
+}
+
+function fileIcon(filename: string) {
+  const extension = filename.toLowerCase().split('.').pop()
+
+  return extension && hasFileIcon(extension)
+    ? 'bi-filetype-' + extension
+    : 'bi-file-earmark'
+}
+
+function fileUrl(file: string) {
+  return `/api/sessions/${session.value}/files/${file}`
+}
 </script>
 
 <template>
   <div v-if="username">
+    <p class="text-center mb-2">
+      Anyone with this link can access/upload/delete files from this session
+      during 24 hours.
+    </p>
+
     <div class="row justify-content-center mb-4">
-      <div class="col-md-6 text-center">
-        <label class="form-label" for="session">
-          Anyone with this link can access/upload/delete files from this session
-          during 24 hours.
-        </label>
+      <div class="col-md-5 text-center">
         <div class="input-group">
           <input
             type="url"
             id="session"
             class="form-control"
             readonly
-            :value="currentUrl()"
+            :value="currentURL"
           />
 
-          <CopyButton :value="currentUrl()" />
+          <CopyButton :value="currentURL" />
         </div>
 
         <span v-if="encryptionKey" class="form-text text-success">
@@ -83,7 +354,7 @@ import UploadZone from '../components/UploadZone.vue'
                 <br />
                 Loading...
               </div>
-              <a v-else href="#" @click.prevent="openUploadPrompt">
+              <a v-else href="#" @click.prevent="fileUpload?.click()">
                 <i class="bi bi-file-earmark-plus fs-1"></i>
                 <br />
                 Upload
@@ -92,13 +363,14 @@ import UploadZone from '../components/UploadZone.vue'
           </div>
 
           <div class="text-center small">
-            <i class="bi bi-cloud-arrow-up"></i> Drag and drop to upload a file
+            <i class="bi bi-cloud-arrow-up-fill"></i>
+            Drag and drop to upload a file
           </div>
 
           <input
             @change="onUpload"
             type="file"
-            id="fileUpload"
+            ref="fileUpload"
             class="d-none"
           />
         </UploadZone>
@@ -121,8 +393,8 @@ import UploadZone from '../components/UploadZone.vue'
 
   <div v-else class="text-center">
     <div class="row justify-content-center">
-      <div class="col-md-6">
-        <form @submit.prevent="join">
+      <div class="col-md-5">
+        <form @submit.prevent="join" class="mb-3">
           <label class="form-label" for="username"
             >Enter a username to continue</label
           >
@@ -138,10 +410,10 @@ import UploadZone from '../components/UploadZone.vue'
 
           <button
             type="submit"
-            class="btn btn-primary rounded-pill mb-3"
+            class="btn btn-primary rounded-pill"
             :disabled="loading"
           >
-            <i class="bi bi-check2-circle"></i> Go
+            <i class="bi bi-check-circle"></i> Go
             <span
               v-if="loading"
               class="spinner-border spinner-border-sm"
@@ -155,275 +427,3 @@ import UploadZone from '../components/UploadZone.vue'
     <hr />
   </div>
 </template>
-
-<script lang="ts">
-import type { FilesIndex, LogEvent, UploadedFile } from '@/utils/api'
-
-import axios from 'axios'
-import { defineComponent } from 'vue'
-import {
-  downloadBlob,
-  filetypeIconExists,
-  formatBytes,
-  readFile,
-} from '@/utils/utils'
-import { decryptFromBase64, encryptAsBase64 } from '@/utils/crypto'
-
-export default defineComponent({
-  data() {
-    return {
-      session: '',
-      encryptionKey: '',
-      username: '',
-      usernameInput: '',
-      users: [] as string[],
-      logs: [] as LogEvent[],
-      files: {} as FilesIndex,
-      webSocket: null as WebSocket | null,
-      rejoining: false,
-      loading: false,
-      // startTime: Date.now(),
-    }
-  },
-  emits: ['error'],
-  mounted() {
-    this.session = this.$route.params.session as string
-    this.encryptionKey = this.$route.hash.substring(1)
-
-    if (typeof this.$route.query.user === 'string') {
-      this.usernameInput = this.$route.query.user
-
-      this.join()
-    }
-  },
-  methods: {
-    join() {
-      this.handleError(null)
-      this.loading = true
-
-      const host = window.location.host
-      const url = `wss://${host}/api/sessions/${this.session}/websocket`
-      this.webSocket = new WebSocket(url)
-
-      this.webSocket.addEventListener('open', () => {
-        this.webSocket?.send(
-          JSON.stringify({ ready: true, name: this.usernameInput }),
-        )
-        this.loading = false
-        this.rejoining = false
-      })
-
-      this.webSocket.addEventListener('message', (event: MessageEvent) => {
-        const data = JSON.parse(event.data)
-
-        if (data.error) {
-          this.handleError(data.error)
-          return
-        }
-
-        if (data.ready === true) {
-          this.loading = false
-          this.username = this.usernameInput
-          this.files = data.files
-          this.logs = data.logs.reverse()
-          this.users = data.users
-          return
-        }
-
-        if (!this.username) {
-          return // Not ready yet
-        }
-
-        if (!data.type) {
-          this.handleError('Unknown response: ' + event.data)
-          return
-        }
-
-        this.logs.unshift(data)
-
-        while (this.logs.length > 15) {
-          this.logs.pop()
-        }
-
-        switch (data.type) {
-          case 'user_join':
-            if (!this.users.includes(data.user)) {
-              this.users.push(data.user)
-            }
-            break
-          case 'user_leave':
-            this.users = this.users.filter((u) => u !== data.user)
-            break
-          case 'file_upload':
-            this.files[data.file.id] = data.file
-            break
-          case 'file_delete':
-            delete this.files[data.file.id]
-            break
-          case 'close':
-            this.closeSession()
-            break
-        }
-      })
-
-      this.webSocket.addEventListener('close', (event: CloseEvent) => {
-        console.log('WebSocket closed, reconnecting:', event.code, event.reason)
-        this.rejoin()
-      })
-      this.webSocket.addEventListener('error', (event: Event) => {
-        console.log('WebSocket error, reconnecting:', event)
-        this.handleError('WebSocket error, trying to reconnect...')
-        this.rejoin()
-      })
-    },
-    async rejoin() {
-      if (this.rejoining) {
-        return
-      }
-
-      this.rejoining = true
-      this.webSocket = null
-
-      /*let timeSinceLastJoin = Date.now() - startTime
-      if (timeSinceLastJoin < 10000) {
-          // Less than 10 seconds elapsed since last join. Pause a bit.
-          await new Promise(resolve => setTimeout(resolve, 10000 - timeSinceLastJoin))
-      }*/
-      this.join()
-    },
-    async downloadFile(file: UploadedFile) {
-      if (file.encrypted && !this.encryptionKey) {
-        this.handleError(
-          'This file is encrypted but no encryption key is present in the URL.',
-        )
-        return
-      }
-
-      this.loading = true
-
-      try {
-        const response = await axios.get(
-          this.fileUrl(file.id),
-          file.encrypted ? {} : { responseType: 'blob' },
-        )
-        const blob = file.encrypted
-          ? await decryptFromBase64(response.data, this.encryptionKey)
-          : response.data
-
-        downloadBlob(blob, file.id, file.type ?? 'application/download')
-      } catch (e) {
-        this.handleError(e)
-      }
-
-      this.loading = false
-    },
-    async uploadFile(files: FileList) {
-      const file = files[0]
-
-      if (
-        this.files[file.name] &&
-        !confirm('A file with this name already exists, replace it?')
-      ) {
-        return
-      }
-
-      if (file.size > 100 * 1024 * 1024) {
-        this.handleError('Max upload size is 100 MB.')
-        return
-      }
-
-      if (Object.keys(this.files).length > 25) {
-        this.handleError('A session can contains up to 25 files.')
-        return
-      }
-
-      if (this.loading) {
-        return
-      }
-
-      try {
-        this.loading = true
-
-        const body = this.encryptionKey
-          ? await encryptAsBase64(await readFile(file), this.encryptionKey)
-          : file
-
-        await axios.post(this.fileUrl(file.name), body, {
-          headers: {
-            'Content-Type': file.type,
-            'Session-Name': this.username,
-            'X-Encrypted': !!this.encryptionKey,
-          },
-        })
-      } catch (e) {
-        this.handleError(e)
-      }
-
-      this.loading = false
-    },
-    async deleteFile(fileId: string) {
-      if (!confirm('Are you sure you want to delete ' + fileId + ' ?')) {
-        return
-      }
-
-      this.loading = true
-
-      try {
-        await axios.delete(this.fileUrl(fileId), {
-          headers: {
-            'Session-Name': this.username,
-          },
-        })
-      } catch (e) {
-        this.handleError(e)
-      }
-
-      this.loading = false
-    },
-    closeSession() {
-      if (this.webSocket) {
-        this.webSocket.close()
-      }
-
-      this.$router.push('/')
-    },
-    openUploadPrompt() {
-      document.getElementById('fileUpload')?.click()
-    },
-    async onUpload(event: Event) {
-      if (event.target instanceof HTMLInputElement && event.target.files) {
-        await this.uploadFile(event.target.files)
-      }
-    },
-    handleError(error: unknown) {
-      this.$emit('error', error)
-    },
-    formatLogEvent(event: LogEvent) {
-      switch (event.type) {
-        case 'user_join':
-          return `${event.user} joined the session`
-        case 'user_leave':
-          return `${event.user} left the session`
-        case 'file_upload':
-          return `${event.user} uploaded a file: ${event.file?.name}`
-        case 'file_delete':
-          return `${event.user} deleted a file: ${event.file?.name}`
-      }
-    },
-    fileUrl(file: string) {
-      return `/api/sessions/${this.session}/files/${file}`
-    },
-    formatBytes,
-    fileIcon(filename: string) {
-      const extension = filename.toLowerCase().split('.').pop()
-
-      return extension && filetypeIconExists(extension)
-        ? 'bi-filetype-' + extension
-        : 'bi-file-earmark'
-    },
-    currentUrl() {
-      return window.location.href
-    },
-  },
-})
-</script>

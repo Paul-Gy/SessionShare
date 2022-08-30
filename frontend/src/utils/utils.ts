@@ -71,7 +71,7 @@ export function downloadBlob(data: BlobPart, name: string, type: string): void {
   window.URL.revokeObjectURL(url)
 }
 
-export function filetypeIconExists(extension: string) {
+export function hasFileIcon(extension: string) {
   return supportedFileIcons.includes(extension)
 }
 
