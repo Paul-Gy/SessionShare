@@ -1,11 +1,8 @@
+import type { LogEvent, LogType, SessionClient, UploadedFile } from './api'
+
 import { json } from 'itty-router-extras'
-import {
-  FileIndex,
-  LogEvent,
-  LogType,
-  SessionClient,
-  UploadedFile,
-} from './api'
+
+type FileIndex = Record<string, UploadedFile>
 
 export class SharingSession implements DurableObject {
   state: DurableObjectState
@@ -24,6 +21,7 @@ export class SharingSession implements DurableObject {
       const pair = new WebSocketPair()
 
       await this.handleSession(pair[1], ip)
+      await this.updateExpiration()
 
       return new Response(null, { status: 101, webSocket: pair[0] })
     }
@@ -37,15 +35,11 @@ export class SharingSession implements DurableObject {
     const filename = url.pathname.slice(7) // Remove /files/
 
     if (request.method == 'POST') {
-      const username = this.parseUsernameFromRequest(request)
-
-      return this.handleUpload(request, filename, ip, username)
+      return this.handleUpload(request, filename)
     }
 
     if (request.method == 'DELETE') {
-      const username = this.parseUsernameFromRequest(request)
-
-      return this.handleDelete(filename, ip, username)
+      return this.handleDelete(request, filename)
     }
 
     return this.handleGet(filename)
@@ -66,12 +60,7 @@ export class SharingSession implements DurableObject {
     return new Response(object.body, { headers })
   }
 
-  async handleUpload(
-    request: Request,
-    filename: string,
-    ip: string,
-    user: string,
-  ) {
+  async handleUpload(request: Request, filename: string) {
     const id = filename
     const key = this.state.id.toString() + '-' + id
     const files: FileIndex = (await this.state.storage.get('files')) ?? {}
@@ -90,7 +79,7 @@ export class SharingSession implements DurableObject {
     const file: UploadedFile = {
       id,
       name: filename,
-      type: r2object.httpMetadata.contentType,
+      type: r2object.httpMetadata?.contentType,
       size: r2object.size,
       encrypted: request.headers.get('X-Encrypted') === 'true',
       lastUpdate: new Date(),
@@ -99,14 +88,13 @@ export class SharingSession implements DurableObject {
     files[id] = file
 
     await this.state.storage.put('files', files)
-    await this.broadcast('file_upload', user, file)
-
+    await this.broadcast('file_upload', this.parseRequestUser(request), file)
     await this.updateExpiration()
 
     return json({ id })
   }
 
-  async handleDelete(fileId: string, ip: string, user: string) {
+  async handleDelete(request: Request, fileId: string) {
     const files: FileIndex = (await this.state.storage.get('files')) ?? {}
     const file = files[fileId]
 
@@ -114,12 +102,11 @@ export class SharingSession implements DurableObject {
       return new Response('Object Not Found', { status: 404 })
     }
 
-    await this.env.BUCKET.delete(this.state.id.toString() + '-' + fileId)
-
     delete files[fileId]
 
+    await this.env.BUCKET.delete(this.state.id.toString() + '-' + fileId)
     await this.state.storage.put('files', files)
-    await this.broadcast('file_delete', user, file)
+    await this.broadcast('file_delete', this.parseRequestUser(request), file)
 
     return json({ message: 'File Deleted' })
   }
@@ -141,29 +128,21 @@ export class SharingSession implements DurableObject {
 
         const data = JSON.parse(event.data as string)
 
-        if (!data.name || data.name.length > 16 || data.name.length < 3) {
-          socket.send(
-            JSON.stringify({ error: 'Invalid username: ' + data.name }),
-          )
+        if (!data.name || data.name.length > 25 || data.name.length < 3) {
+          socket.send(JSON.stringify({ error: `Invalid name: ${data.name}.` }))
           return
         }
 
         if (!receivedUserInfo) {
           const files: FileIndex = (await this.state.storage.get('files')) ?? {}
           const logs: LogEvent[] = (await this.state.storage.get('logs')) ?? []
+          const users = this.clients
+            .filter((client) => client.name)
+            .map((client) => client.name)
 
           client.name = data.name
 
-          socket.send(
-            JSON.stringify({
-              ready: true,
-              files,
-              logs,
-              users: this.clients
-                .filter((client) => client.name)
-                .map((client) => client.name),
-            }),
-          )
+          socket.send(JSON.stringify({ ready: true, files, logs, users }))
 
           await this.broadcast('user_join', data.name)
 
@@ -177,10 +156,12 @@ export class SharingSession implements DurableObject {
     const quitHandler = () => {
       client.active = false
       this.clients = this.clients.filter((member) => member !== client)
+
       if (client.name) {
         this.broadcast('user_leave', client.name)
       }
     }
+
     socket.addEventListener('close', quitHandler)
     socket.addEventListener('error', quitHandler)
   }
@@ -199,26 +180,19 @@ export class SharingSession implements DurableObject {
     await this.state.storage.deleteAll()
   }
 
-  async broadcast(
-    type: LogType,
-    user: string,
-    file: UploadedFile | undefined = undefined,
-  ) {
-    const event: LogEvent = {
-      type,
-      user,
-      file,
-      date: new Date(),
-    }
-
+  async broadcast(type: LogType, user: string, file?: UploadedFile) {
+    const event: LogEvent = { type, user, file, date: new Date() }
     const clientLefts: SessionClient[] = []
+
     this.clients = this.clients.filter((client) => {
       try {
         client.socket.send(JSON.stringify(event))
+
         return true
       } catch (err) {
         client.active = false
         clientLefts.push(client)
+
         return false
       }
     })
@@ -232,8 +206,8 @@ export class SharingSession implements DurableObject {
     const logs: LogEvent[] = (await this.state.storage.get('logs')) ?? []
     logs.push(event)
 
-    while (logs.length > 15) {
-      logs.shift()
+    if (logs.length > 15) {
+      logs.splice(0, logs.length - 15)
     }
 
     await this.state.storage.put('logs', logs)
@@ -247,8 +221,8 @@ export class SharingSession implements DurableObject {
     await this.destroy()
   }
 
-  parseUsernameFromRequest(request: Request): string {
-    return request.headers.get('Session-Name') ?? '???'
+  parseRequestUser(request: Request): string {
+    return request.headers.get('Session-Name') ?? '?'
   }
 }
 

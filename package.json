@@ -2,7 +2,6 @@
   "name": "sessionshare",
   "version": "1.0.0",
   "description": "Easily share files in multiple times with a single link!",
-  "main": "dist/worker.js",
   "scripts": {
     "dev": "npx wrangler dev",
     "publish": "npx wrangler publish",

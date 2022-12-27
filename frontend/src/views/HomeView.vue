@@ -4,7 +4,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const emit = defineEmits(['error'])
+const emit = defineEmits<{ (e: 'error', error: unknown): void }>()
 
 const loading = ref(false)
 const encrypted = ref(false)

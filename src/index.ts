@@ -10,7 +10,7 @@ router
     error(503, 'The workers should only be active on /api/*'),
   )
   .post('/api/sessions', async () => {
-    const id = (Math.random() + 1).toString(36).substring(2)
+    const id = (Math.random() + 1).toString(36).substring(2, 10)
 
     return json({ session: id })
   })

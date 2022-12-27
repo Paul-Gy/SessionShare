@@ -26,3 +26,7 @@ link each time.
 ## Planned features
 
 * Support for larger files using multipart upload (currently limited to 100 MB)
+
+## Credits
+
+Avatars by [Freepik](https://www.freepik.com/).

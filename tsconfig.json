@@ -8,7 +8,7 @@
     "jsx": "react",
     "module": "es2022",
     "moduleResolution": "node",
-    "types": ["@cloudflare/workers-types", "@types/jest"],
+    "types": ["@cloudflare/workers-types"],
     "resolveJsonModule": true,
     "allowJs": true,
     "checkJs": false,

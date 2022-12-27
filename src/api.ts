@@ -1,4 +1,3 @@
-export type FileIndex = Record<string, UploadedFile>
 export type LogType =
   | 'user_join'
   | 'user_leave'

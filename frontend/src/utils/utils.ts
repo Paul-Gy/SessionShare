@@ -51,6 +51,76 @@ const supportedFileIcons = [
   'yml',
 ]
 
+const adjectives = [
+  'Adventurous',
+  'Aggressive',
+  'Agreeable',
+  'Amused',
+  'Angry',
+  'Attractive',
+  'Beautiful',
+  'Brainy',
+  'Brave',
+  'Bright',
+  'Busy',
+  'Calm',
+  'Careful',
+  'Cautious',
+  'Charming',
+  'Clean',
+  'Clever',
+  'Colorful',
+  'Combative',
+  'Cooperative',
+  'Courageous',
+  'Crazy',
+  'Curious',
+  'Cute',
+  'Dangerous',
+  'Defeated',
+  'Defiant',
+  'Determined',
+  'Disgusted',
+  'Elegant',
+  'Enchanting',
+  'Encouraging',
+  'Energetic',
+  'Enthusiastic',
+  'Evil',
+  'Excited',
+  'Famous',
+  'Fancy',
+  'Fantastic',
+  'Friendly',
+  'Funny',
+  'Gentle',
+  'Glorious',
+  'Good',
+  'Graceful',
+  'Handsome',
+  'Happy',
+  'Healthy',
+  'Helpful',
+  'Important',
+]
+
+const animals = [
+  'Beaver',
+  'Cat',
+  'Deer',
+  'Elephant',
+  'Fox',
+  'Groundhog',
+  'Horse',
+  'Monkey',
+  'Panda',
+  'Pig',
+  'Rabbit',
+  'Raccoon',
+  'Tiger',
+  'Zebra',
+]
+
 export async function readFile(file: Blob): Promise<ArrayBuffer> {
   return new Promise((resolve) => {
     const reader = new FileReader()
@@ -73,6 +143,13 @@ export function downloadBlob(data: BlobPart, name: string, type: string): void {
 
 export function hasFileIcon(extension: string) {
   return supportedFileIcons.includes(extension)
+}
+
+export function randomName() {
+  const adjective = adjectives[Math.floor(Math.random() * adjectives.length)]
+  const animal = animals[Math.floor(Math.random() * animals.length)]
+
+  return `${adjective} ${animal}`
 }
 
 export function formatBytes(bytes: number) {

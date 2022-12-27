@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-const emit = defineEmits(['upload'])
+const emit = defineEmits<{ (e: 'upload', files: FileList): void }>()
 
 const dragActive = ref(false)
 

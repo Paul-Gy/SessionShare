@@ -5,21 +5,26 @@ import axios from 'axios'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { decryptFromBase64, encryptAsBase64 } from '@/utils/crypto'
-import { downloadBlob, hasFileIcon, formatBytes, readFile } from '@/utils/utils'
-import CopyButton from '../components/CopyButton.vue'
-import UploadZone from '../components/UploadZone.vue'
+import {
+  downloadBlob,
+  hasFileIcon,
+  formatBytes,
+  readFile,
+  randomName,
+} from '@/utils/utils'
+import CopyButton from '@/components/CopyButton.vue'
+import QrModal from '@/components/QrModal.vue'
+import UploadZone from '@/components/UploadZone.vue'
 
-const emit = defineEmits(['error'])
+const emit = defineEmits<{ (e: 'error', error: unknown): void }>()
 const route = useRoute()
 const router = useRouter()
 
 const session = ref('')
 const encryptionKey = ref('')
-const username = ref('')
-const usernameInput = ref('')
+const ready = ref(false)
 const loading = ref(false)
-const rejoining = ref(false)
-const webSocket = ref<WebSocket>()
+const showQrModal = ref(false)
 const fileUpload = ref<HTMLElement>()
 const users = reactive<string[]>([])
 const logs = reactive<LogEvent[]>([])
@@ -27,15 +32,16 @@ const files = reactive<FilesIndex>({})
 
 const currentURL = computed(() => window.location.href)
 
+const username = randomName()
+
+let rejoining = false
+let webSocket: WebSocket | undefined
+
 onMounted(() => {
   session.value = route.params.session as string
   encryptionKey.value = route.hash.substring(1)
 
-  if (typeof route.query.user === 'string') {
-    usernameInput.value = route.query.user
-
-    join()
-  }
+  join()
 })
 
 function join() {
@@ -44,17 +50,15 @@ function join() {
 
   const host = window.location.host
   const url = `wss://${host}/api/sessions/${session.value}/websocket`
-  webSocket.value = new WebSocket(url)
+  webSocket = new WebSocket(url)
 
-  webSocket.value.addEventListener('open', () => {
-    webSocket.value?.send(
-      JSON.stringify({ ready: true, name: usernameInput.value }),
-    )
+  webSocket.addEventListener('open', () => {
+    webSocket?.send(JSON.stringify({ ready: true, name: username }))
     loading.value = false
-    rejoining.value = false
+    rejoining = false
   })
 
-  webSocket.value.addEventListener('message', (event: MessageEvent) => {
+  webSocket.addEventListener('message', (event: MessageEvent) => {
     const data = JSON.parse(event.data)
 
     if (data.error) {
@@ -64,9 +68,9 @@ function join() {
 
     if (data.ready === true) {
       loading.value = false
-      username.value = usernameInput.value
-      logs.length = 0
-      users.length = 0
+      ready.value = true
+      logs.splice(0)
+      users.splice(0)
       logs.push(...data.logs.reverse())
       users.push(...data.users)
 
@@ -76,7 +80,7 @@ function join() {
       return
     }
 
-    if (!username.value) {
+    if (!ready.value) {
       return // Not ready yet
     }
 
@@ -114,12 +118,12 @@ function join() {
     }
   })
 
-  webSocket.value.addEventListener('close', (event: CloseEvent) => {
+  webSocket.addEventListener('close', (event: CloseEvent) => {
     console.log('WebSocket closed, reconnecting:', event.code, event.reason)
     rejoin()
   })
 
-  webSocket.value.addEventListener('error', (event: Event) => {
+  webSocket.addEventListener('error', (event: Event) => {
     console.log('WebSocket error, reconnecting:', event)
     handleError('WebSocket error, trying to reconnect...')
     rejoin()
@@ -127,12 +131,12 @@ function join() {
 }
 
 async function rejoin() {
-  if (rejoining.value) {
+  if (rejoining) {
     return
   }
 
-  rejoining.value = true
-  webSocket.value = undefined
+  rejoining = true
+  webSocket = undefined
 
   join()
 }
@@ -198,7 +202,7 @@ async function uploadFile(fileList: FileList) {
     await axios.post(fileUrl(file.name), body, {
       headers: {
         'Content-Type': file.type,
-        'Session-Name': username.value,
+        'Session-Name': username,
         'X-Encrypted': !!encryptionKey.value,
       },
     })
@@ -218,9 +222,7 @@ async function deleteFile(fileId: string) {
 
   try {
     await axios.delete(fileUrl(fileId), {
-      headers: {
-        'Session-Name': username.value,
-      },
+      headers: { 'Session-Name': username },
     })
   } catch (e) {
     handleError(e)
@@ -230,11 +232,21 @@ async function deleteFile(fileId: string) {
 }
 
 function closeSession() {
-  if (webSocket.value) {
-    webSocket.value.close()
+  if (webSocket) {
+    webSocket.close()
   }
 
   router.push('/')
+}
+
+function toggleQrModal() {
+  showQrModal.value = !showQrModal.value
+
+  if (showQrModal.value) {
+    document.body.classList.add('overflow-hidden')
+  } else {
+    document.body.classList.remove('overflow-hidden')
+  }
 }
 
 function handleError(error: unknown) {
@@ -274,7 +286,7 @@ function fileUrl(file: string) {
 </script>
 
 <template>
-  <div v-if="username">
+  <div v-if="ready">
     <p class="text-center mb-2">
       Anyone with this link can access/upload/delete files from this session
       during 24 hours.
@@ -283,6 +295,15 @@ function fileUrl(file: string) {
     <div class="row justify-content-center mb-4">
       <div class="col-md-5 text-center">
         <div class="input-group">
+          <button
+            @click="toggleQrModal"
+            type="button"
+            class="btn btn-secondary"
+            title="QR Code"
+          >
+            <i class="bi bi-qr-code" />
+          </button>
+
           <input
             type="url"
             id="session"
@@ -305,9 +326,14 @@ function fileUrl(file: string) {
       <div class="col-md-8">
         <div class="content-box mb-4">
           <h2>Online users</h2>
-          <div class="row text-center">
+          <div class="row gy-3 text-center">
             <div v-for="user in users" :key="user" class="col-lg-2 col-md-3">
-              <i class="bi bi-person-circle fs-1"></i>
+              <img
+                :src="`/avatars/${user.toLowerCase().split(' ')[1]}.svg`"
+                :alt="user"
+                height="60"
+                class="mb-1"
+              />
               <br />
               {{ user }}
             </div>
@@ -350,7 +376,7 @@ function fileUrl(file: string) {
 
             <div class="col-lg-2 col-md-3">
               <div v-if="loading">
-                <div class="spinner-border" role="status"></div>
+                <div class="spinner-border" role="status" />
                 <br />
                 Loading...
               </div>
@@ -381,7 +407,12 @@ function fileUrl(file: string) {
           <h2>Session history</h2>
 
           <div class="overflow-scroll">
-            <p v-for="log in logs" :key="log.type + log.date" class="mb-1">
+            <p
+              v-for="log in logs"
+              :key="log.type + log.date"
+              :title="log.date.toString()"
+              class="mb-1"
+            >
               <i class="bi bi-chevron-double-right"></i>
               {{ formatLogEvent(log) }}
             </p>
@@ -394,36 +425,14 @@ function fileUrl(file: string) {
   <div v-else class="text-center">
     <div class="row justify-content-center">
       <div class="col-md-5">
-        <form @submit.prevent="join" class="mb-3">
-          <label class="form-label" for="username"
-            >Enter a username to continue</label
-          >
-          <input
-            v-model.trim="usernameInput"
-            type="text"
-            class="form-control mb-3"
-            id="username"
-            minlength="3"
-            maxlength="16"
-            required
-          />
+        <div class="spinner-border mb-3" />
 
-          <button
-            type="submit"
-            class="btn btn-primary rounded-pill"
-            :disabled="loading"
-          >
-            <i class="bi bi-check-circle"></i> Go
-            <span
-              v-if="loading"
-              class="spinner-border spinner-border-sm"
-              role="status"
-            />
-          </button>
-        </form>
+        <h2>Loading...</h2>
       </div>
     </div>
 
     <hr />
   </div>
+
+  <QrModal @close="toggleQrModal" :show="showQrModal" :value="currentURL" />
 </template>

@@ -46,6 +46,10 @@
     --color-heading: var(--vt-c-text-dark-1);
     --color-text: var(--vt-c-text-dark-2);
   }
+
+  .svg-qrcode {
+    filter: invert(1);
+  }
 }
 
 :root {
@@ -75,4 +79,8 @@ h6, .h6, h5, .h5, h4, .h4, h3, .h3, h2, .h2, h1, .h1 {
     color: var(--color-text);
     background-color: var(--color-background-soft);
   }
+}
+
+.modal {
+  --bs-modal-bg: var(--color-background-soft);
 }
