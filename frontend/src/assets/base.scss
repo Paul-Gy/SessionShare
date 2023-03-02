@@ -47,7 +47,7 @@
     --color-text: var(--vt-c-text-dark-2);
   }
 
-  .svg-qrcode {
+  .dark-svg {
     filter: invert(1);
   }
 }
@@ -59,6 +59,11 @@
 
 h6, .h6, h5, .h5, h4, .h4, h3, .h3, h2, .h2, h1, .h1 {
   color: var(--color-heading);
+}
+
+svg {
+  line-height: 1;
+  vertical-align: -.125em;
 }
 
 .content-box {

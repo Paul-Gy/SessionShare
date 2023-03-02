@@ -2,6 +2,10 @@ name = "sessionshare"
 compatibility_date = "2022-06-05"
 main = "./src/index.ts"
 
+[vars]
+# Custom domain for public R2 bucket access
+# R2_CUSTOM_DOMAIN = "files.sessionshare.net"
+
 [[rules]]
 type = "ESModule"
 globs = ["**/*.ts"]

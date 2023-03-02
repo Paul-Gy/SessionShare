@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import axios from 'axios'
+import { BIconShare } from 'bootstrap-icons-vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -35,7 +36,7 @@ async function start() {
       type="button"
       class="btn btn-primary rounded-pill mb-3"
     >
-      <i class="bi bi-share"></i> Start a new sharing session
+      <BIconShare /> Start a new sharing session
     </button>
 
     <div class="d-flex justify-content-center">

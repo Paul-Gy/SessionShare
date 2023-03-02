@@ -70,7 +70,7 @@ export async function encryptAsBase64(data: ArrayBufferLike, password: string) {
   return btoa(buffer.join(''))
 }
 
-export async function decryptFromBase64(base64: string, password: string) {
+export function decryptFromBase64(base64: string, password: string) {
   const buffer = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
 
   return decryptData(buffer, password)

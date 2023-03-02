@@ -1,5 +1,4 @@
-import { Router, Request } from 'itty-router'
-import { error, json, missing } from 'itty-router-extras'
+import { Router } from 'itty-router'
 
 export { SharingSession } from './session'
 
@@ -7,14 +6,14 @@ const router = Router()
 
 router
   .get('/:session?', () =>
-    error(503, 'The workers should only be active on /api/*'),
+    Response.json('Workers should only be active on /api/*', { status: 503 }),
   )
-  .post('/api/sessions', async () => {
+  .post('/api/sessions', () => {
     const id = (Math.random() + 1).toString(36).substring(2, 10)
 
-    return json({ session: id })
+    return Response.json({ session: id })
   })
-  .all('/api/sessions/:session/*', async (request: Request, env: Env) => {
+  .all('/api/sessions/:session/*', (request, env: Env) => {
     const name = request.params?.session ?? ''
     const id =
       name.length === 64
@@ -28,7 +27,7 @@ router
 
     return session.fetch(url.toString(), request)
   })
-  .all('*', () => missing())
+  .all('*', () => Response.json('404 - Not Found', { status: 404 }))
 
 export default {
   fetch(request: Request, env: Env): Promise<Response> {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BIconExclamationCircle, BIconHeart } from 'bootstrap-icons-vue'
 import { ref } from 'vue'
 import { RouterView } from 'vue-router'
 
@@ -21,7 +22,7 @@ function handleError(e: Event | null) {
       class="alert alert-danger alert-dismissible fade show"
       role="alert"
     >
-      <i class="bi bi-exclamation-circle"></i> {{ lastError }}
+      <BIconExclamationCircle /> {{ lastError }}
       <button
         @click="handleError(null)"
         type="button"
@@ -37,16 +38,20 @@ function handleError(e: Event | null) {
       <a
         href="https://github.com/Paul-Gy/SessionShare"
         target="_blank"
-        ref="nofollow"
+        ref="noopener noreferrer"
         >GitHub</a
       >
-      - Built with <i class="bi-heart text-danger" role="img"></i> in
-      Switzerland on
-      <a href="https://workers.cloudflare.com/" target="_blank" rel="nofollow"
+      - Built with <BIconHeart class="text-danger" /> in Switzerland on
+      <a
+        href="https://workers.cloudflare.com/"
+        target="_blank"
+        rel="noopener noreferrer"
         >Cloudflare Workers</a
       >
       with
-      <a href="https://vuejs.org/" target="_blank" rel="nofollow">Vue.js</a>
+      <a href="https://vuejs.org/" target="_blank" rel="noopener noreferrer"
+        >Vue.js</a
+      >
     </p>
   </div>
 </template>
