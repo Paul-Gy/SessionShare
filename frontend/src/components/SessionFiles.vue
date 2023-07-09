@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import type { FilesIndex, UploadedFile } from '@/utils/api'
 
-import axios from 'axios'
-import {
-  BIconTrash,
-  BIconFileEarmarkPlus,
-  BIconCloudArrowUpFill,
-} from 'bootstrap-icons-vue'
+import { BIconTrash, BIconFileEarmarkPlus, BIconCloudArrowUpFill } from 'bootstrap-icons-vue'
 import { ref } from 'vue'
+import wretch from 'wretch'
+
 import FileIcon from '@/components/FileIcon.vue'
 import { decryptFromBase64, encryptAsBase64 } from '@/utils/crypto'
 import { downloadBlob, formatBytes, readFile } from '@/utils/utils'
@@ -21,50 +18,35 @@ const props = defineProps<{
   files: FilesIndex
 }>()
 const emit = defineEmits<{
-  (e: 'loading', value: boolean): void
-  (e: 'error', error: unknown): void
+  loading: [value: boolean]
+  error: [error: unknown]
 }>()
 
 const fileUpload = ref<HTMLElement>()
 const dragActive = ref(false)
 
-function setDragActive(active: boolean) {
-  dragActive.value = active
+function fileUrl(file: string) {
+  return `/api/sessions/${props.session}/files/${file}`
 }
 
-async function onInputChange(event: Event) {
-  if (event.target instanceof HTMLInputElement && event.target.files) {
-    await uploadFile(event.target.files)
-  }
-}
-
-async function onDrop(event: DragEvent) {
-  if (event.dataTransfer) {
-    await uploadFile(event.dataTransfer.files)
-  }
-
-  setDragActive(false)
+function downloadUrl(file: string) {
+  const bucket = props.bucketDomain
+  return bucket ? `https://${bucket}/${props.session}-${file}` : fileUrl(file)
 }
 
 async function downloadFile(file: UploadedFile) {
   if (file.encrypted && !props.encryptionKey) {
-    emit(
-      'error',
-      'This file is encrypted but no encryption key is present in the URL.',
-    )
+    emit('error', 'This file is encrypted but no encryption key is present in the URL.')
     return
   }
 
   emit('loading', true)
 
   try {
-    const response = await axios.get(
-      downloadUrl(file.id),
-      file.encrypted ? {} : { responseType: 'blob' },
-    )
+    const request = await wretch(downloadUrl(file.id)).get()
     const blob = file.encrypted
-      ? await decryptFromBase64(response.data, props.encryptionKey)
-      : response.data
+      ? await decryptFromBase64(await request.text(), props.encryptionKey)
+      : await request.blob()
 
     downloadBlob(blob, file.id, file.type ?? 'application/download')
   } catch (e) {
@@ -77,10 +59,7 @@ async function downloadFile(file: UploadedFile) {
 async function uploadFile(fileList: FileList) {
   const file = fileList[0]
 
-  if (
-    props.files[file.name] &&
-    !confirm('A file with this name already exists, replace it?')
-  ) {
+  if (props.files[file.name] && !confirm('A file with this name already exists, replace it?')) {
     return
   }
 
@@ -105,13 +84,14 @@ async function uploadFile(fileList: FileList) {
       ? await encryptAsBase64(await readFile(file), props.encryptionKey)
       : file
 
-    await axios.post(fileUrl(file.name), body, {
-      headers: {
+    await wretch(fileUrl(file.name))
+      .headers({
         'Content-Type': file.type,
         'Session-Name': props.user,
-        'X-Encrypted': !!props.encryptionKey,
-      },
-    })
+        'X-Encrypted': Boolean(props.encryptionKey).toString(),
+      })
+      .post(body)
+      .res()
   } catch (e) {
     emit('error', e)
   }
@@ -120,16 +100,14 @@ async function uploadFile(fileList: FileList) {
 }
 
 async function deleteFile(fileId: string) {
-  if (!confirm('Are you sure you want to delete ' + fileId + ' ?')) {
+  if (!confirm(`Are you sure you want to delete ${fileId} ?`)) {
     return
   }
 
   emit('loading', true)
 
   try {
-    await axios.delete(fileUrl(fileId), {
-      headers: { 'Session-Name': props.user },
-    })
+    await wretch(fileUrl(fileId)).headers({ 'Session-Name': props.user }).delete()
   } catch (e) {
     emit('error', e)
   }
@@ -137,13 +115,22 @@ async function deleteFile(fileId: string) {
   emit('loading', false)
 }
 
-function downloadUrl(file: string) {
-  const bucket = props.bucketDomain
-  return bucket ? `https://${bucket}/${props.session}-${file}` : fileUrl(file)
+function setDragActive(active: boolean) {
+  dragActive.value = active
 }
 
-function fileUrl(file: string) {
-  return `/api/sessions/${props.session}/files/${file}`
+async function onInputChange(event: Event) {
+  if (event.target instanceof HTMLInputElement && event.target.files) {
+    await uploadFile(event.target.files)
+  }
+}
+
+async function onDrop(event: DragEvent) {
+  if (event.dataTransfer) {
+    await uploadFile(event.dataTransfer.files)
+  }
+
+  setDragActive(false)
 }
 </script>
 
@@ -203,11 +190,6 @@ function fileUrl(file: string) {
       Drag and drop to upload a file
     </div>
 
-    <input
-      @change="onInputChange"
-      type="file"
-      ref="fileUpload"
-      class="d-none"
-    />
+    <input @change="onInputChange" type="file" ref="fileUpload" class="d-none" />
   </div>
 </template>

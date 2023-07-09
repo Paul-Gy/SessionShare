@@ -1,5 +1,17 @@
-@import "variables";
+@import 'variables';
 
-@import "~bootstrap/scss/bootstrap";
+@import '~bootstrap/scss/bootstrap';
 
-@import "base";
+.content-box {
+  background-color: var(--bs-tertiary-bg);
+  border-radius: 0.8rem;
+  border-width: 1px;
+  padding: 0.75rem;
+  box-shadow: 0 0.2rem 0.15rem rgba(0, 0, 0, 0.1);
+  overflow-wrap: break-word;
+}
+
+svg {
+  line-height: 1;
+  vertical-align: -0.125em;
+}

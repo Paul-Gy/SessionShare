@@ -37,22 +37,11 @@ function closeModal() {
 
 <template>
   <div class="input-group">
-    <button
-      @click="showModal"
-      type="button"
-      class="btn btn-secondary"
-      title="QR Code"
-    >
+    <button @click="showModal" type="button" class="btn btn-secondary" title="QR Code">
       <BIconQrCode />
     </button>
 
-    <input
-      type="url"
-      id="session"
-      class="form-control"
-      readonly
-      :value="value"
-    />
+    <input type="url" id="session" class="form-control" readonly :value="value" />
 
     <button type="button" class="btn btn-primary" @click="copy" title="Copy">
       <BIconCheckLg v-if="copied" aria-label="Copied!" />
@@ -72,17 +61,10 @@ function closeModal() {
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h1 class="modal-title fs-5" id="qrModalLabel">
-              Invite to session
-            </h1>
-            <button
-              type="button"
-              class="btn-close dark-svg"
-              aria-label="Close"
-              @click="closeModal"
-            ></button>
+            <h1 class="modal-title fs-5" id="qrModalLabel">Invite to session</h1>
+            <button type="button" class="btn-close" aria-label="Close"></button>
           </div>
-          <div class="modal-body text-center dark-svg" v-html="svg" />
+          <div class="modal-body text-center svg-qrcode" v-html="svg" />
         </div>
       </div>
     </div>
@@ -95,5 +77,11 @@ function closeModal() {
 .v-enter-from,
 .v-leave-to {
   opacity: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .svg-qrcode {
+    filter: invert(1) grayscale(100);
+  }
 }
 </style>

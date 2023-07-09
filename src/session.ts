@@ -1,15 +1,26 @@
-import type { LogEvent, LogType, SessionClient, UploadedFile } from './api'
+import type { LogContent, LogEvent, SessionClient, UploadedFile } from './api'
 
-type FileIndex = Record<string, UploadedFile>
+import { error, Router } from 'itty-router'
+
+interface Env {
+  BUCKET: R2Bucket
+  R2_CUSTOM_DOMAIN?: string
+}
 
 export class SharingSession implements DurableObject {
-  state: DurableObjectState
+  router = Router()
   clients: SessionClient[] = []
+  state: DurableObjectState
   env: Env
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state
     this.env = env
+    this.router
+      .get('/files/:file', (req) => this.handleGet(req.params.file))
+      .post('/files/:file', (req) => this.handleUpload(req, req.params.file))
+      .delete('/files/:file', (req) => this.handleDelete(req, req.params.file))
+      .all('*', () => error(404))
   }
 
   async fetch(request: Request) {
@@ -24,23 +35,7 @@ export class SharingSession implements DurableObject {
       return new Response(null, { status: 101, webSocket: pair[0] })
     }
 
-    const url = new URL(request.url)
-
-    if (!url.pathname.startsWith('/files/')) {
-      return new Response('404 - Not found')
-    }
-
-    const filename = url.pathname.slice(7) // Remove /files/
-
-    if (request.method === 'POST') {
-      return this.handleUpload(request, filename)
-    }
-
-    if (request.method === 'DELETE') {
-      return this.handleDelete(request, filename)
-    }
-
-    return this.handleGet(filename)
+    return this.router.handle(request)
   }
 
   async handleGet(file: string) {
@@ -58,15 +53,12 @@ export class SharingSession implements DurableObject {
     return new Response(object.body, { headers })
   }
 
-  async handleUpload(request: Request, filename: string) {
-    const id = filename
-    const key = `${this.state.id.toString()}-${id}`
-    const files: FileIndex = (await this.state.storage.get('files')) ?? {}
+  async handleUpload(request: Request, fileId: string) {
+    const key = `${this.state.id.toString()}-${fileId}`
+    const files = await this.getFiles()
 
-    if (Object.keys(files).length > 25) {
-      const error = 'A session can contains up to 25 files'
-
-      return Response.json({ error }, { status: 400 })
+    if (files.size > 25) {
+      return error(400, 'A session can contains up to 25 files.')
     }
 
     const r2object = await this.env.BUCKET.put(key, request.body, {
@@ -74,36 +66,36 @@ export class SharingSession implements DurableObject {
     })
 
     const file: UploadedFile = {
-      id,
-      name: filename,
+      id: fileId,
+      name: fileId,
       type: r2object.httpMetadata?.contentType,
       size: r2object.size,
       encrypted: request.headers.get('X-Encrypted') === 'true',
       lastUpdate: new Date(),
     }
 
-    files[id] = file
+    files.set(fileId, file)
 
     await this.state.storage.put('files', files)
-    await this.broadcast('file_upload', this.parseRequestUser(request), file)
+    await this.broadcast({ type: 'file_upload', file }, parseRequestUser(request))
     await this.updateExpiration()
 
-    return Response.json({ id })
+    return Response.json({ id: fileId })
   }
 
   async handleDelete(request: Request, fileId: string) {
-    const files: FileIndex = (await this.state.storage.get('files')) ?? {}
-    const file = files[fileId]
+    const files = await this.getFiles()
+    const file = files.get(fileId)
 
     if (!file) {
       return new Response('Object Not Found', { status: 404 })
     }
 
-    delete files[fileId]
+    files.delete(fileId)
 
     await this.env.BUCKET.delete(`${this.state.id.toString()}-${fileId}`)
     await this.state.storage.put('files', files)
-    await this.broadcast('file_delete', this.parseRequestUser(request), file)
+    await this.broadcast({ type: 'file_delete', file }, parseRequestUser(request))
 
     return Response.json({ message: 'File Deleted' })
   }
@@ -125,6 +117,11 @@ export class SharingSession implements DurableObject {
 
         const data = JSON.parse(event.data as string)
 
+        if (data.action === 'message') {
+          await this.broadcast({ type: 'message', message: data.message }, client.name)
+          return
+        }
+
         if (!data.name || data.name.length > 25 || data.name.length < 3) {
           socket.send(JSON.stringify({ error: `Invalid name: ${data.name}.` }))
           return
@@ -132,17 +129,17 @@ export class SharingSession implements DurableObject {
 
         if (!receivedUserInfo) {
           const bucketDomain = this.env.R2_CUSTOM_DOMAIN
-          const files: FileIndex = (await this.state.storage.get('files')) ?? {}
+          const files = Object.fromEntries(await this.getFiles())
           const logs: LogEvent[] = (await this.state.storage.get('logs')) ?? []
           const users = this.clients
-            .filter((client) => client.name)
+            .filter((client) => client.name !== undefined)
             .map((client) => client.name)
           const response = { ready: true, bucketDomain, files, logs, users }
 
           client.name = data.name
           socket.send(JSON.stringify(response))
 
-          await this.broadcast('user_join', data.name)
+          await this.broadcast({ type: 'user_join' }, data.name)
 
           receivedUserInfo = true
         }
@@ -151,12 +148,12 @@ export class SharingSession implements DurableObject {
       }
     })
 
-    const quitHandler = () => {
+    const quitHandler = async () => {
       client.active = false
       this.clients = this.clients.filter((member) => member !== client)
 
       if (client.name) {
-        this.broadcast('user_leave', client.name)
+        await this.broadcast({ type: 'user_leave' }, client.name)
       }
     }
 
@@ -165,21 +162,21 @@ export class SharingSession implements DurableObject {
   }
 
   async destroy() {
-    const files: FileIndex = (await this.state.storage.get('files')) ?? {}
+    const files = await this.getFiles()
 
-    for (const file in files) {
+    for (const file of files.keys()) {
       const key = `${this.state.id.toString()}-${file}`
 
       await this.env.BUCKET.delete(key)
     }
 
-    await this.broadcast('close', '')
+    await this.broadcast({ type: 'close' })
 
     await this.state.storage.deleteAll()
   }
 
-  async broadcast(type: LogType, user: string, file?: UploadedFile) {
-    const event: LogEvent = { type, user, file, date: new Date() }
+  async broadcast(content: LogContent, user = '') {
+    const event: LogEvent = { ...content, user, date: new Date() }
     const clientLefts: SessionClient[] = []
 
     this.clients = this.clients.filter((client) => {
@@ -197,7 +194,7 @@ export class SharingSession implements DurableObject {
 
     clientLefts.forEach((user) => {
       if (user.name) {
-        this.broadcast('user_leave', user.name)
+        this.broadcast({ type: 'user_leave' }, user.name)
       }
     })
 
@@ -219,12 +216,11 @@ export class SharingSession implements DurableObject {
     await this.destroy()
   }
 
-  parseRequestUser(request: Request): string {
-    return request.headers.get('Session-Name') ?? '?'
+  async getFiles(): Promise<Map<string, UploadedFile>> {
+    return (await this.state.storage.get('files')) ?? new Map()
   }
 }
 
-interface Env {
-  BUCKET: R2Bucket
-  R2_CUSTOM_DOMAIN?: string
+function parseRequestUser(request: Request): string {
+  return request.headers.get('Session-Name') ?? '?'
 }

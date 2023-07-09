@@ -4,12 +4,12 @@ import type { FilesIndex, LogEvent } from '@/utils/api'
 import { BIconShieldShaded } from 'bootstrap-icons-vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import SessionActivity from '@/components/SessionActivity.vue'
 import SessionFiles from '@/components/SessionFiles.vue'
-import SessionHistory from '@/components/SessionHistory.vue'
 import ShareInput from '@/components/ShareInput.vue'
 import { randomName } from '@/utils/utils'
 
-const emit = defineEmits<{ (e: 'error', error: unknown): void }>()
+const emit = defineEmits<{ error: [error: unknown] }>()
 const route = useRoute()
 const router = useRouter()
 
@@ -142,6 +142,10 @@ function closeSession() {
   router.push('/')
 }
 
+function sendChatMessage(message: string) {
+  webSocket?.send(JSON.stringify({ action: 'message', message }))
+}
+
 function handleError(error: unknown) {
   return emit('error', error)
 }
@@ -154,8 +158,7 @@ function setLoading(value: boolean) {
 <template>
   <div v-if="ready">
     <p class="text-center mb-2">
-      Anyone with this link can access/upload/delete files from this session
-      during 24 hours.
+      Anyone with this link can access/upload/delete files from this session during 24 hours.
     </p>
 
     <div class="row justify-content-center mb-4">
@@ -182,6 +185,7 @@ function setLoading(value: boolean) {
               />
               <br />
               {{ user }}
+              <div v-if="user === username" class="fw-bold">(You)</div>
             </div>
           </div>
         </div>
@@ -198,7 +202,7 @@ function setLoading(value: boolean) {
         />
       </div>
 
-      <SessionHistory :logs="logs" />
+      <SessionActivity @message="sendChatMessage" :logs="logs" />
     </div>
   </div>
 

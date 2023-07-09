@@ -2,13 +2,9 @@
 
 export async function getPasswordKey(password: string, salt: BufferSource) {
   const enc = new TextEncoder()
-  const key = await window.crypto.subtle.importKey(
-    'raw',
-    enc.encode(password),
-    'PBKDF2',
-    false,
-    ['deriveKey'],
-  )
+  const key = await window.crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, [
+    'deriveKey',
+  ])
 
   return window.crypto.subtle.deriveKey(
     {
