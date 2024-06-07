@@ -14,8 +14,8 @@ const svg = computed(() =>
     join: true,
   })
     .svg()
-    .replace(/<rect.*\/>/, '')
-    .replace(/style=".*;"/, 'fill="#000"'),
+    .replace(/<rect.*\/>/, '') // Remove background
+    .replace(/style=".*;"/, 'fill="currentColor"'),
 )
 
 async function copy() {
@@ -41,7 +41,14 @@ function closeModal() {
       <BIconQrCode />
     </button>
 
-    <input type="url" id="session" class="form-control" readonly :value="value" />
+    <input
+      type="url"
+      id="session"
+      class="form-control"
+      readonly
+      aria-label="Session URL"
+      :value="value"
+    />
 
     <button type="button" class="btn btn-primary" @click="copy" title="Copy">
       <BIconCheckLg v-if="copied" aria-label="Copied!" />
@@ -64,7 +71,7 @@ function closeModal() {
             <h1 class="modal-title fs-5" id="qrModalLabel">Invite to session</h1>
             <button type="button" class="btn-close" aria-label="Close"></button>
           </div>
-          <div class="modal-body text-center svg-qrcode" v-html="svg" />
+          <div class="modal-body text-center" v-html="svg" />
         </div>
       </div>
     </div>
@@ -77,11 +84,5 @@ function closeModal() {
 .v-enter-from,
 .v-leave-to {
   opacity: 0;
-}
-
-@media (prefers-color-scheme: dark) {
-  .svg-qrcode {
-    filter: invert(1) grayscale(100);
-  }
 }
 </style>

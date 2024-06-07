@@ -59,15 +59,17 @@ function join() {
     }
 
     if (data.ready === true) {
+      const newLogs = data.logs.map((log: LogEvent) => ({ ...log, date: new Date(log.date) }))
+
       loading.value = false
       ready.value = true
       bucketDomain = data.bucketDomain
       logs.splice(0)
       users.splice(0)
-      logs.push(...data.logs.reverse())
+      logs.push(...newLogs.reverse())
       users.push(...data.users)
 
-      Object.keys(files).forEach((key) => delete data[key])
+      Object.keys(files).forEach((key) => delete files[key])
       Object.keys(data.files).forEach((key) => (files[key] = data.files[key]))
 
       return
@@ -77,12 +79,12 @@ function join() {
       return // Not ready yet
     }
 
-    if (!data.type) {
-      handleError('Unknown response: ' + event.data)
+    if (!data.type || !data.date) {
+      handleError(`Unexpected websocket message: ${event.data}`)
       return
     }
 
-    logs.unshift(data)
+    logs.unshift({ ...data, date: new Date(data.date) })
 
     while (logs.length > 15) {
       logs.pop()
@@ -158,11 +160,11 @@ function setLoading(value: boolean) {
 <template>
   <div v-if="ready">
     <p class="text-center mb-2">
-      Anyone with this link can access/upload/delete files from this session during 24 hours.
+      Anyone with this link can access/upload/delete files from this session for 24 hours.
     </p>
 
     <div class="row justify-content-center mb-4">
-      <div class="col-md-5 text-center">
+      <div class="col-xl-5 col-lg-6 col-md-8 text-center">
         <ShareInput :value="currentURL" />
 
         <span v-if="encryptionKey" class="form-text text-success">
@@ -172,7 +174,7 @@ function setLoading(value: boolean) {
     </div>
 
     <div class="row g-4 gy-3 mb-4">
-      <div class="col-md-8">
+      <div class="col-lg-8">
         <div class="content-box mb-4">
           <h2>Online users</h2>
           <div class="row gy-3 text-center">

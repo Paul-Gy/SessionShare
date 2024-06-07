@@ -1,11 +1,7 @@
 import type { LogContent, LogEvent, SessionClient, UploadedFile } from './api'
+import type { Env } from './index'
 
-import { error, Router } from 'itty-router'
-
-interface Env {
-  BUCKET: R2Bucket
-  R2_CUSTOM_DOMAIN?: string
-}
+import { Router, error } from 'itty-router'
 
 export class SharingSession implements DurableObject {
   router = Router()
@@ -58,7 +54,7 @@ export class SharingSession implements DurableObject {
     const files = await this.getFiles()
 
     if (files.size > 25) {
-      return error(400, 'A session can contains up to 25 files.')
+      return error(400, 'A session can contain up to 25 files.')
     }
 
     const r2object = await this.env.BUCKET.put(key, request.body, {
@@ -192,11 +188,9 @@ export class SharingSession implements DurableObject {
       }
     })
 
-    clientLefts.forEach((user) => {
-      if (user.name) {
-        this.broadcast({ type: 'user_leave' }, user.name)
-      }
-    })
+    const broadcasts = clientLefts
+      .filter((client) => client.name !== undefined)
+      .map((client) => this.broadcast({ type: 'user_leave' }, client.name))
 
     const logs: LogEvent[] = (await this.state.storage.get('logs')) ?? []
     logs.push(event)
@@ -206,6 +200,8 @@ export class SharingSession implements DurableObject {
     }
 
     await this.state.storage.put('logs', logs)
+
+    await Promise.all(broadcasts)
   }
 
   async updateExpiration() {

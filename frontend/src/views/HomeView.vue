@@ -14,7 +14,7 @@ async function start() {
   try {
     loading.value = true
 
-    const key = encrypted.value ? '#' + (Math.random() + 1).toString(36).substring(2) : ''
+    const key = encrypted.value ? `#${(Math.random() + 1).toString(36).substring(2)}` : ''
     const response = await wretch('/api/sessions').post().json<{ session: string }>()
     const session = response.session
 

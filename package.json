@@ -4,7 +4,7 @@
   "description": "Easily share files in multiple times with a single link!",
   "scripts": {
     "dev": "npx wrangler dev",
-    "publish": "npx wrangler publish",
+    "deploy": "npx wrangler deploy",
     "format": "prettier --write  '*.{json,js}' 'src/**/*.{js,ts}'",
     "lint": "eslint --max-warnings=0 src && prettier --check '*.{json,js}' 'src/**/*.{js,ts}'"
   },

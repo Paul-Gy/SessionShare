@@ -1,9 +1,7 @@
 const adjectives = [
   'Adventurous',
-  'Aggressive',
   'Agreeable',
   'Amused',
-  'Angry',
   'Attractive',
   'Beautiful',
   'Brainy',
@@ -23,18 +21,13 @@ const adjectives = [
   'Crazy',
   'Curious',
   'Cute',
-  'Dangerous',
-  'Defeated',
-  'Defiant',
   'Determined',
-  'Disgusted',
   'Elegant',
   'Enchanting',
   'Encouraging',
   'Energetic',
   'Enthusiastic',
   'Evil',
-  'Excited',
   'Famous',
   'Fancy',
   'Fantastic',
@@ -63,7 +56,7 @@ const animals = [
   'Horse',
   'Monkey',
   'Panda',
-  'Pig',
+  // 'Pig',
   'Rabbit',
   'Raccoon',
   'Tiger',
@@ -105,5 +98,5 @@ export function formatBytes(bytes: number) {
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
 
-  return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i]
+  return `${(bytes / 1024 ** i).toFixed(2)} ${sizes[i]}`
 }

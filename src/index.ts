@@ -1,6 +1,12 @@
-import { error, Router } from 'itty-router'
+import { Router, error } from 'itty-router'
 
 export { SharingSession } from './session'
+
+export interface Env {
+  SESSIONS: DurableObjectNamespace
+  BUCKET: R2Bucket
+  R2_CUSTOM_DOMAIN?: string
+}
 
 const router = Router()
 
@@ -24,8 +30,4 @@ export default {
   fetch(request: Request, env: Env): Promise<Response> {
     return router.handle(request, env)
   },
-}
-
-interface Env {
-  SESSIONS: DurableObjectNamespace
 }

@@ -10,6 +10,7 @@ import {
   BIconSend,
 } from 'bootstrap-icons-vue'
 import { ref, watch } from 'vue'
+import LinkifyText from '@/components/LinkifyText.vue'
 
 const emit = defineEmits<{ message: [message: string] }>()
 const props = defineProps<{ logs: LogEvent[] }>()
@@ -17,11 +18,12 @@ const props = defineProps<{ logs: LogEvent[] }>()
 const message = ref('')
 const loading = ref(false)
 
-watch(props.logs, async (logs) => {
+watch(props.logs, (logs) => {
   if (!loading.value) {
     return
   }
 
+  // Reset the message input if the message was received successfully
   if (logs.find((l) => l.type === 'message' && l.message === message.value)) {
     message.value = ''
     loading.value = false
@@ -53,7 +55,7 @@ function formatLogEvent(event: LogEvent) {
 </script>
 
 <template>
-  <div class="col-md-4">
+  <div class="col-lg-4">
     <div class="position-relative h-100 activity-box">
       <div class="position-absolute top-0 bottom-0 start-0 end-0 content-box d-flex flex-column">
         <h2 class="mb-1">Session Activity</h2>
@@ -62,7 +64,7 @@ function formatLogEvent(event: LogEvent) {
           <p
             v-for="log in logs"
             :key="log.type + log.date"
-            :title="log.date.toString()"
+            :title="log.date.toLocaleTimeString()"
             class="mb-1"
           >
             <BIconPersonPlusFill v-if="log.type === 'user_join'" />
@@ -70,7 +72,10 @@ function formatLogEvent(event: LogEvent) {
             <BIconPlusCircleFill v-else-if="log.type === 'file_upload'" />
             <BIconDashCircleFill v-else-if="log.type === 'file_delete'" />
             <BIconChatFill v-else-if="log.type === 'message'" />
-            {{ formatLogEvent(log) }}
+
+            <LinkifyText v-if="log.type === 'message'" :text="log.message" class="ms-1" />
+
+            <span v-else class="ms-1">{{ formatLogEvent(log) }}</span>
           </p>
         </div>
 
@@ -80,6 +85,7 @@ function formatLogEvent(event: LogEvent) {
             type="text"
             class="form-control"
             placeholder="Send a message"
+            aria-label="Send a message"
             maxlength="128"
             :disabled="loading"
           />
