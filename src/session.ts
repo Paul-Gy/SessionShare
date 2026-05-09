@@ -31,7 +31,7 @@ export class SharingSession implements DurableObject {
       return new Response(null, { status: 101, webSocket: pair[0] })
     }
 
-    return this.router.handle(request)
+    return this.router.fetch(request)
   }
 
   async handleGet(file: string) {
@@ -53,7 +53,7 @@ export class SharingSession implements DurableObject {
     const key = `${this.state.id.toString()}-${fileId}`
     const files = await this.getFiles()
 
-    if (files.size > 25) {
+    if (files.size >= 25) {
       return error(400, 'A session can contain up to 25 files.')
     }
 
@@ -127,9 +127,7 @@ export class SharingSession implements DurableObject {
           const bucketDomain = this.env.R2_CUSTOM_DOMAIN
           const files = Object.fromEntries(await this.getFiles())
           const logs: LogEvent[] = (await this.state.storage.get('logs')) ?? []
-          const users = this.clients
-            .filter((client) => client.name !== undefined)
-            .map((client) => client.name)
+          const users = this.clients.filter((c) => c.name !== undefined).map((c) => c.name)
           const response = { ready: true, bucketDomain, files, logs, users }
 
           client.name = data.name
@@ -145,8 +143,13 @@ export class SharingSession implements DurableObject {
     })
 
     const quitHandler = async () => {
-      client.active = false
       this.clients = this.clients.filter((member) => member !== client)
+
+      if (!client.active) {
+        return
+      }
+
+      client.active = false
 
       if (client.name) {
         await this.broadcast({ type: 'user_leave' }, client.name)
@@ -173,22 +176,22 @@ export class SharingSession implements DurableObject {
 
   async broadcast(content: LogContent, user = '') {
     const event: LogEvent = { ...content, user, date: new Date() }
-    const clientLefts: SessionClient[] = []
+    const disconnectedClients: SessionClient[] = []
 
     this.clients = this.clients.filter((client) => {
       try {
         client.socket.send(JSON.stringify(event))
 
         return true
-      } catch (err) {
+      } catch {
         client.active = false
-        clientLefts.push(client)
+        disconnectedClients.push(client)
 
         return false
       }
     })
 
-    const broadcasts = clientLefts
+    const broadcasts = disconnectedClients
       .filter((client) => client.name !== undefined)
       .map((client) => this.broadcast({ type: 'user_leave' }, client.name))
 

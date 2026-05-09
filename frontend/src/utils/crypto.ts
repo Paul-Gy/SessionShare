@@ -20,7 +20,7 @@ export async function getPasswordKey(password: string, salt: BufferSource) {
   )
 }
 
-export async function encryptData(data: ArrayBufferLike, password: string) {
+export async function encryptData(data: ArrayBuffer, password: string) {
   const salt = window.crypto.getRandomValues(new Uint8Array(16))
   const iv = window.crypto.getRandomValues(new Uint8Array(12))
   const key = await getPasswordKey(password, salt)
@@ -54,16 +54,10 @@ export async function decryptData(encryptedBuff: Uint8Array, password: string) {
   return new Uint8Array(decrypted)
 }
 
-export async function encryptAsBase64(data: ArrayBufferLike, password: string) {
+export async function encryptAsBase64(data: ArrayBuffer, password: string) {
   const encrypted = await encryptData(data, password)
-  const encryptedLength = encrypted.byteLength
-  const buffer = []
 
-  for (let i = 0; i < encryptedLength; i++) {
-    buffer.push(String.fromCharCode(encrypted[i]))
-  }
-
-  return btoa(buffer.join(''))
+  return btoa(Array.from(new Uint8Array(encrypted), (b) => String.fromCharCode(b)).join(''))
 }
 
 export function decryptFromBase64(base64: string, password: string) {

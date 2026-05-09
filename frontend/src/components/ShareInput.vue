@@ -41,14 +41,7 @@ function closeModal() {
       <BIconQrCode />
     </button>
 
-    <input
-      type="url"
-      id="session"
-      class="form-control"
-      readonly
-      aria-label="Session URL"
-      :value="value"
-    />
+    <input type="url" id="session" class="form-control" readonly aria-label="Session URL" :value />
 
     <button type="button" class="btn btn-primary" @click="copy" title="Copy">
       <BIconCheckLg v-if="copied" aria-label="Copied!" />

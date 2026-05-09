@@ -125,7 +125,7 @@ function join() {
   })
 }
 
-async function rejoin() {
+function rejoin() {
   if (rejoining) {
     return
   }
@@ -133,7 +133,7 @@ async function rejoin() {
   rejoining = true
   webSocket = undefined
 
-  join()
+  setTimeout(join, 500)
 }
 
 function closeSession() {

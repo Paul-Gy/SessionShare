@@ -14,7 +14,7 @@ const links = computed(() => linkify.match(props.text) ?? [])
       {{ props.text }}
     </template>
 
-    <template v-else-if="links[0].index > 0">
+    <template v-else-if="links[0] && links[0].index > 0">
       {{ text.slice(0, links[0].index) }}
     </template>
 

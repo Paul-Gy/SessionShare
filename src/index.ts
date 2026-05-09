@@ -1,4 +1,4 @@
-import { Router, error } from 'itty-router'
+import { Router, error, status } from 'itty-router'
 
 export { SharingSession } from './session'
 
@@ -17,6 +17,7 @@ router
 
     return Response.json({ session: id })
   })
+  .options('/api/*', () => status(204))
   .all('/api/sessions/:session/:path+', (request, env: Env) => {
     const name = request.params.session ?? ''
     const id = name.length === 64 ? env.SESSIONS.idFromString(name) : env.SESSIONS.idFromName(name)
@@ -27,7 +28,5 @@ router
   .all('*', () => error(404))
 
 export default {
-  fetch(request: Request, env: Env): Promise<Response> {
-    return router.handle(request, env)
-  },
+  fetch: router.fetch,
 }

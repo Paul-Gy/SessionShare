@@ -63,7 +63,7 @@ function formatLogEvent(event: LogEvent) {
         <div class="overflow-auto d-flex flex-column-reverse pt-2">
           <p
             v-for="log in logs"
-            :key="log.type + log.date"
+            :key="log.type + log.date.getTime()"
             :title="log.date.toLocaleTimeString()"
             class="mb-1"
           >
@@ -73,7 +73,11 @@ function formatLogEvent(event: LogEvent) {
             <BIconDashCircleFill v-else-if="log.type === 'file_delete'" />
             <BIconChatFill v-else-if="log.type === 'message'" />
 
-            <LinkifyText v-if="log.type === 'message'" :text="log.message" class="ms-1" />
+            <LinkifyText
+              v-if="log.type === 'message'"
+              :text="`${log.user}: ${log.message}`"
+              class="ms-1"
+            />
 
             <span v-else class="ms-1">{{ formatLogEvent(log) }}</span>
           </p>

@@ -2,7 +2,7 @@
 import type { FilesIndex, UploadedFile } from '@/utils/api'
 
 import { BIconCloudArrowUpFill, BIconFileEarmarkPlus, BIconTrash } from 'bootstrap-icons-vue'
-import { ref } from 'vue'
+import { ref, useTemplateRef } from 'vue'
 import wretch from 'wretch'
 
 import FileIcon from '@/components/FileIcon.vue'
@@ -22,7 +22,7 @@ const emit = defineEmits<{
   error: [error: unknown]
 }>()
 
-const fileUpload = ref<HTMLElement>()
+const fileUpload = useTemplateRef('fileUpload')
 const dragActive = ref(false)
 
 function fileUrl(file: string) {

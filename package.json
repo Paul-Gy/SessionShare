@@ -2,31 +2,22 @@
   "name": "sessionshare",
   "version": "1.0.0",
   "description": "Easily share files in multiple times with a single link!",
+  "license": "MIT",
+  "author": "Paul G.",
   "scripts": {
     "dev": "npx wrangler dev",
     "deploy": "npx wrangler deploy",
-    "format": "prettier --write  '*.{json,js}' 'src/**/*.{js,ts}'",
-    "lint": "eslint --max-warnings=0 src && prettier --check '*.{json,js}' 'src/**/*.{js,ts}'"
-  },
-  "author": "Paul G.",
-  "license": "MIT",
-  "eslintConfig": {
-    "root": true,
-    "extends": [
-      "typescript",
-      "prettier"
-    ]
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.0.0",
-    "@typescript-eslint/eslint-plugin": "^5.31.0",
-    "@typescript-eslint/parser": "^5.31.0",
-    "eslint": "^8.20.0",
-    "eslint-config-prettier": "^8.5.0",
-    "eslint-config-typescript": "^3.0.0",
-    "itty-router": "^4.0.9",
-    "prettier": "^2.7.1",
-    "typescript": "^5.1.3",
-    "wrangler": "^3.0.1"
+    "itty-router": "^5.0.23",
+    "oxfmt": "^0.48.0",
+    "oxlint": "^1.63.0",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.90.0"
   }
 }

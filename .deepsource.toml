@@ -3,5 +3,5 @@ version = 1
 [[analyzers]]
 name = "javascript"
 
-  [analyzers.meta]
-  plugins = ["vue"]
+[analyzers.meta]
+plugins = ["vue"]
