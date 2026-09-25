@@ -1,6 +1,6 @@
 # SessionShare
 
-Easily share files in multiple times with a single link!
+Easily share files multiple times with a single link.
 
 Built using [Vue.js](https://vuejs.org/) on [Cloudflare Workers](https://workers.cloudflare.com/), with Durable Objects,
 and R2. Also supports end-to-end AES-256-GCM file encryption.
@@ -12,9 +12,9 @@ was selected as one of the winners 🎉⚡️
 
 ## Why ?
 
-When working with several people, it is often necessary to send files to each other. There are many services for sending a
-single file, but I haven't found one that allows you to send multiple files multiple times without the need to send a new
-link each time.
+When working with several people, it is often necessary to send files to each other. There are
+many services for sending a single file, but I haven't found one that lets you send several
+files at different times without having to share a new link each time.
 
 ## Features
 

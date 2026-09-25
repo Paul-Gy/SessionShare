@@ -1,14 +1,10 @@
 name = "sessionshare"
-compatibility_date = "2026-05-06"
-main = "./src/index.ts"
+compatibility_date = "2026-09-25"
+main = "./server/index.ts"
 
 [vars]
 # Custom domain for public R2 bucket access
 # R2_CUSTOM_DOMAIN = "files.sessionshare.net"
-
-[[rules]]
-type = "ESModule"
-globs = ["**/*.ts"]
 
 [durable_objects]
 bindings = [{ name = "SESSIONS", class_name = "SharingSession" }]
@@ -22,7 +18,15 @@ binding = "BUCKET"
 bucket_name = "sessionshare"
 preview_bucket_name = "sessionshare"
 
+[[ratelimits]]
+name = "CREATE_LIMITER"
+namespace_id = "1001"
+
+[ratelimits.simple]
+limit = 5
+period = 60
+
 [assets]
-directory = "./frontend/dist"
+directory = "./dist"
 not_found_handling = "single-page-application"
 run_worker_first = ["/api/*"]

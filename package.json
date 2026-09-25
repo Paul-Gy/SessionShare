@@ -1,23 +1,64 @@
 {
   "name": "sessionshare",
   "version": "1.0.0",
-  "description": "Easily share files in multiple times with a single link!",
+  "description": "Easily share files multiple times with a single link.",
   "license": "MIT",
   "author": "Paul G.",
+  "type": "module",
   "scripts": {
-    "dev": "npx wrangler dev",
-    "deploy": "npx wrangler deploy",
-    "format": "oxfmt",
-    "format:check": "oxfmt --check",
-    "lint": "oxlint",
-    "lint:fix": "oxlint --fix"
+    "dev": "vite",
+    "build": "run-p type-check \"build-only {@}\" --",
+    "preview": "npm run build && wrangler dev",
+    "build-only": "vite build",
+    "type-check": "vue-tsc --build",
+    "deploy": "npm run build && wrangler deploy",
+    "lint": "run-s lint:*",
+    "lint:oxlint": "oxlint . --fix",
+    "lint:eslint": "eslint . --fix --cache",
+    "format": "oxfmt ."
+  },
+  "dependencies": {
+    "@popperjs/core": "^2.11.5",
+    "bootstrap": "^5.3.0",
+    "bootstrap-icons-vue": "^1.8.1",
+    "itty-fetcher": "^1.0.10",
+    "itty-router": "^5.0.23",
+    "linkify-it": "^6.1.0",
+    "qrcode-svg": "^1.1.0",
+    "vue": "^3.5.40",
+    "vue-router": "^5.2.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.0.0",
-    "itty-router": "^5.0.23",
-    "oxfmt": "^0.48.0",
-    "oxlint": "^1.63.0",
-    "typescript": "^6.0.3",
-    "wrangler": "^4.90.0"
+    "@cloudflare/vite-plugin": "^1.55.0",
+    "@cloudflare/workers-types": "^5.0.0",
+    "@tsconfig/node24": "^24.0.4",
+    "@types/node": "^24.13.5",
+    "@types/qrcode-svg": "^1.1.1",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/eslint-config-typescript": "^14.9.0",
+    "@vue/tsconfig": "^0.9.1",
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-oxlint": "~1.82.0",
+    "eslint-plugin-vue": "~10.11.0",
+    "jiti": "^2.7.0",
+    "npm-run-all2": "^9.0.3",
+    "oxfmt": "^0.67.0",
+    "oxlint": "~1.82.0",
+    "sass": "1.77.8",
+    "typescript": "~6.0.0",
+    "vite": "^8.2.2",
+    "vite-plugin-vue-devtools": "^8.2.1",
+    "vue-eslint-parser": "^10.4.1",
+    "vue-tsc": "^3.3.11",
+    "wrangler": "^4.134.0"
+  },
+  "engines": {
+    "node": "^22.18.0 || >=24.12.0"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "fsevents": true,
+    "workerd": true
   }
 }
